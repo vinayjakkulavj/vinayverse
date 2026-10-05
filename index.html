@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Do U Know Me? — Vinay</title>
+  <meta name="description" content="An interactive universe about Vinay: professional work, personal curiosity, and Project Pandora." />
+  <style>
+    :root {
+      --bg: #05070a;
+      --panel: rgba(10, 14, 20, 0.72);
+      --text: #f3f5f7;
+      --muted: #8d98a6;
+      --line: rgba(151, 177, 209, 0.18);
+      --professional: 122, 174, 232;
+      --knowme: 168, 145, 255;
+      --pandora: 78, 205, 185;
+      --sun: 241, 238, 218;
+      --ease: cubic-bezier(.2,.8,.2,1);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width:100%; height:100%; margin:0; background:var(--bg); color:var(--text); overflow:hidden; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, a { font: inherit; }
+
+    .noise, .vignette, .stars { position:fixed; inset:0; pointer-events:none; }
+    .noise { opacity:.035; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.72'/%3E%3C/svg%3E"); mix-blend-mode:soft-light; z-index:50; }
+    .vignette { background:radial-gradient(circle at center, transparent 45%, rgba(0,0,0,.52) 100%); z-index:45; }
+    .stars { z-index:0; background-image:
+      radial-gradient(circle at 15% 18%, rgba(255,255,255,.85) 0 1px, transparent 1.5px),
+      radial-gradient(circle at 72% 26%, rgba(174,204,255,.55) 0 1px, transparent 1.4px),
+      radial-gradient(circle at 42% 70%, rgba(255,255,255,.52) 0 1px, transparent 1.4px),
+      radial-gradient(circle at 82% 78%, rgba(255,255,255,.62) 0 1px, transparent 1.2px),
+      radial-gradient(circle at 24% 82%, rgba(143,194,255,.44) 0 1px, transparent 1.3px);
+      background-size:260px 260px, 330px 330px, 410px 410px, 290px 290px, 520px 520px;
+      opacity:.42;
+      animation: drift 45s linear infinite;
+    }
+    @keyframes drift { to { transform:translate3d(-40px, 20px, 0); } }
+
+    /* opening */
+    #opening { position:fixed; inset:0; z-index:30; background:#05070a; display:grid; place-items:center; transition:opacity .7s var(--ease), visibility .7s; }
+    #opening.done { opacity:0; visibility:hidden; }
+    .opening-copy { text-align:center; width:min(780px, 90vw); transform:translateY(-3vh); }
+    .eyebrow { color:var(--muted); letter-spacing:.26em; font-size:11px; text-transform:uppercase; margin-bottom:18px; }
+    h1 { font-size:clamp(46px, 8vw, 110px); font-weight:560; letter-spacing:-.055em; line-height:.9; margin:0; }
+    .opening-copy p { color:var(--muted); margin:20px auto 0; max-width:560px; font-size:clamp(14px,1.3vw,17px); line-height:1.65; }
+    .drag-zone { position:absolute; left:50%; bottom:10vh; transform:translateX(-50%); width:78px; height:150px; display:flex; align-items:flex-start; justify-content:center; }
+    .drag-track { position:absolute; top:12px; bottom:12px; width:1px; background:linear-gradient(transparent, rgba(255,255,255,.3), transparent); }
+    #dragHandle { position:absolute; top:5px; width:56px; height:56px; border-radius:50%; border:1px solid rgba(255,255,255,.24); background:rgba(255,255,255,.03); color:#fff; display:grid; place-items:center; cursor:grab; backdrop-filter:blur(10px); box-shadow:0 0 28px rgba(125,166,255,.08); transition:border-color .2s, box-shadow .2s; }
+    #dragHandle:hover { border-color:rgba(255,255,255,.5); box-shadow:0 0 40px rgba(125,166,255,.16); }
+    #dragHandle:active { cursor:grabbing; }
+    #dragHandle::before { content:"↓"; font-size:18px; opacity:.8; }
+    .drag-label { position:absolute; top:72px; width:150px; text-align:center; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
+
+    .curtain { position:fixed; inset:0; pointer-events:none; z-index:28; display:flex; opacity:0; transition:opacity .15s; }
+    .curtain.active { opacity:1; }
+    .curtain-half { width:50%; height:100%; background:linear-gradient(100deg,#07090c 0%,#0d1118 70%,#05070a 100%); will-change:transform, clip-path; box-shadow:inset 0 0 80px rgba(255,255,255,.015); }
+    .curtain-left { transform-origin:left center; }
+    .curtain-right { transform-origin:right center; }
+
+    /* UI */
+    .topbar { position:fixed; inset:22px 24px auto 24px; z-index:20; display:flex; justify-content:space-between; align-items:flex-start; opacity:0; transform:translateY(-10px); transition:opacity .8s .25s var(--ease), transform .8s .25s var(--ease); }
+    body.entered .topbar { opacity:1; transform:none; }
+    .brand { font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); text-decoration:none; padding:9px 0; }
+    .brand strong { color:var(--text); font-weight:580; }
+    .comms { display:flex; gap:8px; }
+    .comms a { position:relative; text-decoration:none; color:var(--text); border:1px solid rgba(255,255,255,.15); background:rgba(8,11,16,.52); backdrop-filter:blur(14px); border-radius:999px; padding:10px 14px 10px 30px; font-size:11px; letter-spacing:.11em; text-transform:uppercase; transition:.25s var(--ease); }
+    .comms a::before { content:""; position:absolute; left:13px; top:50%; width:7px; height:7px; margin-top:-3.5px; border:1px solid currentColor; border-radius:50%; opacity:.7; }
+    .comms a:hover { border-color:rgba(255,255,255,.35); background:rgba(17,22,30,.78); transform:translateY(-1px); }
+    .comms a.signal:hover::after { content:""; position:absolute; left:9px; top:50%; width:15px; height:15px; margin-top:-7.5px; border:1px solid rgba(255,255,255,.35); border-radius:50%; animation:pulse .8s ease-out infinite; }
+    @keyframes pulse { from{transform:scale(.7);opacity:.7} to{transform:scale(1.8);opacity:0} }
+
+    /* universe */
+    #universe { position:fixed; inset:0; z-index:5; perspective:1100px; opacity:0; transform:scale(1.04); transition:opacity 1s .1s var(--ease), transform 1.2s var(--ease); }
+    body.entered #universe { opacity:1; transform:scale(1); }
+    #scene { position:absolute; inset:0; transform-style:preserve-3d; cursor:grab; }
+    #scene.dragging { cursor:grabbing; }
+    .scene-tilt { position:absolute; left:50%; top:50%; width:0; height:0; transform-style:preserve-3d; will-change:transform; }
+
+    .orbit-ring { position:absolute; left:50%; top:50%; border:1px solid var(--line); border-radius:50%; transform-style:preserve-3d; pointer-events:none; transition:opacity .35s var(--ease), border-color .35s var(--ease); }
+    .orbit-main-1 { width:min(72vw,920px); height:min(42vw,520px); margin-left:calc(min(72vw,920px)/-2); margin-top:calc(min(42vw,520px)/-2); transform:rotateX(67deg) rotateZ(-7deg); opacity:.42; }
+    .orbit-main-2 { width:min(58vw,760px); height:min(58vw,760px); margin-left:calc(min(58vw,760px)/-2); margin-top:calc(min(58vw,760px)/-2); transform:rotateX(70deg) rotateZ(41deg); opacity:.25; }
+
+    .sun { position:absolute; left:50%; top:50%; width:112px; height:112px; margin:-56px; border-radius:50%; transform-style:preserve-3d; z-index:4; filter:drop-shadow(0 0 30px rgba(var(--sun),.18)); }
+    .sun-core { position:absolute; inset:0; border-radius:50%; background:
+      radial-gradient(circle at 35% 30%, rgba(255,255,255,.97), rgba(var(--sun),.92) 18%, rgba(214,205,178,.72) 45%, rgba(111,103,84,.16) 75%, transparent 77%);
+      box-shadow:0 0 var(--sun-glow1,40px) rgba(var(--sun), var(--sun-alpha,.20)), 0 0 var(--sun-glow2,85px) rgba(180,202,255,.08);
+      transition:box-shadow .6s var(--ease), filter .6s var(--ease);
+      animation:sunBreath 5s ease-in-out infinite;
+    }
+    @keyframes sunBreath { 50%{ transform:scale(1.035); filter:brightness(1.08);} }
+    .sun-label { position:absolute; left:50%; top:calc(100% + 14px); transform:translateX(-50%); text-align:center; width:220px; pointer-events:none; }
+    .sun-label strong { display:block; font-size:13px; letter-spacing:.22em; font-weight:600; }
+    .sun-label span { display:block; margin-top:6px; font-size:10px; letter-spacing:.12em; color:var(--muted); white-space:nowrap; }
+
+    .world-system { position:absolute; left:50%; top:50%; width:0; height:0; transform-style:preserve-3d; will-change:transform; transition:filter .45s var(--ease), opacity .45s var(--ease); }
+    .world-system.dim { filter:saturate(.42) brightness(.45); opacity:.48; }
+    .world-system.focused { filter:saturate(1.12) brightness(1.12); opacity:1; }
+
+    .world { position:absolute; left:0; top:0; width:84px; height:84px; margin:-42px; border:0; padding:0; border-radius:50%; background:transparent; cursor:pointer; transform-style:preserve-3d; color:var(--text); outline:none; }
+    .world .planet { position:absolute; inset:0; border-radius:50%; box-shadow:inset -18px -15px 25px rgba(0,0,0,.32), 0 0 34px rgba(255,255,255,.06); transition:transform .25s var(--ease), box-shadow .3s var(--ease), filter .3s var(--ease); }
+    .world:hover .planet, .world.active .planet { transform:scale(1.06); }
+    .professional .planet { background:radial-gradient(circle at 35% 28%, rgba(184,220,255,.92), rgba(var(--professional),.58) 25%, #122338 65%, #08101a 100%); box-shadow:inset -18px -16px 30px rgba(0,0,0,.4), 0 0 35px rgba(var(--professional),.2); }
+    .knowme .planet { background:radial-gradient(circle at 35% 28%, rgba(232,223,255,.9), rgba(var(--knowme),.53) 24%, #241a3a 66%, #0e0a16 100%); box-shadow:inset -18px -16px 30px rgba(0,0,0,.4), 0 0 36px rgba(var(--knowme),.18); }
+    .pandora .planet { background:radial-gradient(circle at 35% 28%, rgba(209,255,243,.9), rgba(var(--pandora),.53) 24%, #10352f 64%, #071412 100%); box-shadow:inset -18px -16px 30px rgba(0,0,0,.42), 0 0 38px rgba(var(--pandora),.18); }
+    .pandora .planet::after { content:""; position:absolute; left:-10%; top:45%; width:120%; height:18%; border:1px solid rgba(151,255,227,.24); border-radius:50%; transform:rotate(-14deg); }
+
+    .world-label { position:absolute; left:50%; top:calc(100% + 13px); transform:translateX(-50%); white-space:nowrap; text-align:center; pointer-events:none; }
+    .world-label strong { display:block; font-weight:570; font-size:12px; letter-spacing:.13em; text-transform:uppercase; }
+    .world-label span { display:block; color:var(--muted); font-size:9px; letter-spacing:.08em; margin-top:5px; opacity:0; transform:translateY(4px); transition:.3s var(--ease); }
+    .world-system.focused .world-label span { opacity:1; transform:none; }
+
+    .sub-orbit { position:absolute; left:0; top:0; width:250px; height:250px; margin:-125px; border:1px solid rgba(255,255,255,.08); border-radius:50%; transform:rotateX(72deg); opacity:0; scale:.85; pointer-events:none; transition:opacity .45s var(--ease), scale .55s var(--ease); }
+    .world-system.focused .sub-orbit { opacity:.8; scale:1; }
+
+    .moon { position:absolute; left:0; top:0; width:38px; height:38px; margin:-19px; border-radius:50%; border:0; color:var(--text); cursor:pointer; opacity:0; transform:scale(.7); pointer-events:none; transition:opacity .35s var(--ease), transform .45s var(--ease), filter .3s; background:transparent; outline:none; }
+    .world-system.focused .moon { opacity:1; transform:scale(1); pointer-events:auto; }
+    .moon::before { content:""; position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.88), rgba(255,255,255,.14) 32%, rgba(30,39,52,.92) 75%); box-shadow:0 0 22px rgba(160,195,255,.11), inset -8px -8px 12px rgba(0,0,0,.28); transition:.25s var(--ease); }
+    .moon:hover::before { transform:scale(1.12); box-shadow:0 0 30px rgba(190,220,255,.25), inset -8px -8px 12px rgba(0,0,0,.26); }
+    .moon-label { position:absolute; left:50%; top:calc(100% + 9px); transform:translateX(-50%); white-space:nowrap; font-size:9px; letter-spacing:.08em; color:#d8dde4; opacity:.72; pointer-events:none; }
+    .moon-teaser { position:absolute; left:50%; top:-42px; transform:translateX(-50%) translateY(5px); width:230px; padding:9px 11px; border:1px solid rgba(255,255,255,.1); border-radius:10px; background:rgba(7,10,14,.82); backdrop-filter:blur(12px); color:#cbd2dc; font-size:10px; line-height:1.4; text-align:center; opacity:0; pointer-events:none; transition:.25s var(--ease); }
+    .moon:hover .moon-teaser { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    .hint { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:15; color:rgba(205,214,225,.48); font-size:10px; letter-spacing:.14em; text-transform:uppercase; opacity:0; transition:opacity .8s .9s; }
+    body.entered .hint { opacity:1; }
+
+    /* discovery trail */
+    #trailSvg { position:fixed; inset:0; width:100%; height:100%; z-index:2; pointer-events:none; opacity:.62; }
+    .trail-line { stroke:rgba(180,210,255,.18); stroke-width:1; fill:none; stroke-dasharray:2 6; }
+    .trail-dot { fill:rgba(220,235,255,.55); filter:drop-shadow(0 0 4px rgba(150,190,255,.45)); }
+
+    /* constellation */
+    .constellation { position:absolute; z-index:3; opacity:.24; transition:opacity .35s var(--ease); cursor:pointer; }
+    .constellation:hover { opacity:.9; }
+    .constellation span { position:absolute; color:#c9d3df; font-size:9px; letter-spacing:.16em; text-transform:uppercase; opacity:0; transition:.25s; }
+    .constellation:hover span { opacity:1; }
+    .star { position:absolute; width:3px; height:3px; border-radius:50%; background:#d8e8ff; box-shadow:0 0 8px rgba(178,214,255,.65); }
+
+    /* detail page */
+    #detail { position:fixed; inset:0; z-index:25; background:rgba(6,8,11,.97); opacity:0; visibility:hidden; transform:scale(1.02); transition:opacity .55s var(--ease), transform .7s var(--ease), visibility .55s; overflow:auto; }
+    #detail.open { opacity:1; visibility:visible; transform:scale(1); }
+    .detail-shell { min-height:100%; width:min(1060px, 88vw); margin:0 auto; padding:105px 0 90px; }
+    .detail-back { position:fixed; left:24px; top:78px; z-index:28; border:1px solid rgba(255,255,255,.14); color:#dfe5ec; background:rgba(10,14,20,.6); border-radius:999px; padding:9px 13px; font-size:10px; text-transform:uppercase; letter-spacing:.13em; cursor:pointer; }
+    .detail-kicker { color:var(--muted); text-transform:uppercase; letter-spacing:.22em; font-size:10px; }
+    .detail-title { font-size:clamp(42px,6vw,78px); line-height:.98; letter-spacing:-.04em; margin:16px 0 20px; max-width:920px; }
+    .detail-lede { color:#b6c0cb; font-size:clamp(16px,1.7vw,20px); line-height:1.7; max-width:760px; margin:0 0 58px; }
+    .detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    .detail-card { border:1px solid rgba(255,255,255,.09); background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012)); border-radius:18px; padding:24px; min-height:160px; }
+    .detail-card small { display:block; color:var(--muted); letter-spacing:.16em; text-transform:uppercase; font-size:9px; margin-bottom:15px; }
+    .detail-card h3 { margin:0 0 10px; font-size:19px; font-weight:560; }
+    .detail-card p { margin:0; color:#aeb7c1; line-height:1.62; font-size:14px; }
+    .detail-quote { border-left:1px solid rgba(255,255,255,.25); padding-left:24px; margin:40px 0 0; max-width:720px; color:#e8ebee; font-size:clamp(20px,2.6vw,34px); line-height:1.35; letter-spacing:-.02em; }
+
+    /* starship cursor */
+    #ship { position:fixed; z-index:100; left:0; top:0; width:24px; height:24px; pointer-events:none; transform:translate(-50%,-50%); opacity:0; transition:opacity .3s; }
+    body.entered #ship { opacity:1; }
+    .ship-body { position:absolute; left:6px; top:4px; width:12px; height:14px; background:#dfe8f2; clip-path:polygon(50% 0, 88% 75%, 62% 64%, 50% 100%, 38% 64%, 12% 75%); filter:drop-shadow(0 0 5px rgba(180,215,255,.48)); }
+    .ship-flame { position:absolute; left:10px; top:16px; width:4px; height:8px; border-radius:50% 50% 70% 70%; background:linear-gradient(#d8f4ff,rgba(91,165,255,.1)); filter:blur(.6px); transform-origin:50% 0; opacity:.45; }
+
+    @media (max-width:760px) {
+      .topbar { inset:14px 14px auto; }
+      .comms a { padding:9px 11px 9px 25px; font-size:9px; }
+      .comms a::before { left:10px; }
+      .brand { font-size:10px; }
+      .hint { bottom:15px; font-size:9px; }
+      .sun { width:84px; height:84px; margin:-42px; }
+      .world { width:66px; height:66px; margin:-33px; }
+      .sub-orbit { width:190px; height:190px; margin:-95px; }
+      .moon { width:32px; height:32px; margin:-16px; }
+      .moon-label { font-size:8px; }
+      .moon-teaser { display:none; }
+      .detail-shell { width:90vw; padding-top:96px; }
+      .detail-grid { grid-template-columns:1fr; }
+      .detail-back { left:14px; top:64px; }
+      #ship { display:none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:.15s !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stars"></div><div class="vignette"></div><div class="noise"></div>
+
+  <section id="opening" aria-label="Opening experience">
+    <div class="opening-copy">
+      <div class="eyebrow">A personal universe by Vinay</div>
+      <h1>DO U KNOW ME?</h1>
+      <p>You probably know one version of me. There are a few more orbiting around.</p>
+    </div>
+    <div class="drag-zone">
+      <div class="drag-track"></div>
+      <button id="dragHandle" aria-label="Drag down to enter"></button>
+      <div class="drag-label">Drag to know me</div>
+    </div>
+  </section>
+
+  <div class="curtain" id="curtain" aria-hidden="true">
+    <div class="curtain-half curtain-left"></div>
+    <div class="curtain-half curtain-right"></div>
+  </div>
+
+  <header class="topbar">
+    <a href="#" class="brand" id="universeHome"><strong>DOUKNOWME</strong>.COM</a>
+    <nav class="comms" aria-label="Contact">
+      <a class="signal" id="signalLink" href="mailto:YOUR_EMAIL_HERE" title="Email Vinay">Send Signal</a>
+      <a id="commsLink" href="YOUR_LINKEDIN_HERE" target="_blank" rel="noreferrer" title="Open LinkedIn">Open Comms</a>
+    </nav>
+  </header>
+
+  <svg id="trailSvg" viewBox="0 0 1000 1000" preserveAspectRatio="none"></svg>
+
+  <main id="universe" aria-label="Vinay's universe">
+    <div id="scene">
+      <div class="scene-tilt" id="sceneTilt">
+        <div class="orbit-ring orbit-main-1"></div>
+        <div class="orbit-ring orbit-main-2"></div>
+
+        <div class="sun" id="sun">
+          <div class="sun-core"></div>
+          <div class="sun-label"><strong>VINAY</strong><span>Engineer · Builder · Curious Human</span></div>
+        </div>
+
+        <div class="world-system professional" data-world="professional">
+          <button class="world" data-open="professional">
+            <span class="planet"></span>
+            <span class="world-label"><strong>Professional</strong><span>Systems · impact · engineering</span></span>
+          </button>
+          <div class="sub-orbit"></div>
+          <button class="moon" data-angle="0" data-open="lineage"><span class="moon-label">Lineage Intelligence</span><span class="moon-teaser">An idea I still believe could have become much bigger.</span></button>
+          <button class="moon" data-angle="90" data-open="automation"><span class="moon-label">Automation That Saved Hours</span><span class="moon-teaser">A utility built because repeated incidents shouldn't need repeated effort.</span></button>
+          <button class="moon" data-angle="180" data-open="systems"><span class="moon-label">Systems I Improved</span><span class="moon-teaser">Performance, migration, reliability and modernization.</span></button>
+          <button class="moon" data-angle="270" data-open="journey"><span class="moon-label">Engineering Journey</span><span class="moon-teaser">The path, platforms and responsibilities behind the work.</span></button>
+        </div>
+
+        <div class="world-system knowme" data-world="knowme">
+          <button class="world" data-open="knowme">
+            <span class="planet"></span>
+            <span class="world-label"><strong>Know Me</strong><span>Curiosity · people · peace</span></span>
+          </button>
+          <div class="sub-orbit"></div>
+          <button class="moon" data-angle="15" data-open="chill"><span class="moon-label">Beyond the Chill Guy</span><span class="moon-teaser">The version people meet first isn't the whole story.</span></button>
+          <button class="moon" data-angle="110" data-open="wonder"><span class="moon-label">Things I Wonder About</span><span class="moon-teaser">Time, space, evolution, civilizations and unanswered questions.</span></button>
+          <button class="moon" data-angle="205" data-open="peace"><span class="moon-label">My Kind of Peace</span><span class="moon-teaser">Rain, cold air, starry nights, music and silence.</span></button>
+          <button class="moon" data-angle="300" data-open="alternate"><span class="moon-label">Alternate Lives</span><span class="moon-teaser">Astrophysicist. Tech creator. Farmer.</span></button>
+        </div>
+
+        <div class="world-system pandora" data-world="pandora">
+          <button class="world" data-open="pandora">
+            <span class="planet"></span>
+            <span class="world-label"><strong>Project Pandora</strong><span>Where ideas become experiments</span></span>
+          </button>
+          <div class="sub-orbit"></div>
+          <button class="moon" data-angle="35" data-open="manual"><span class="moon-label">Shouldn't Be Manual</span><span class="moon-teaser">Things I built because manual repetition kept annoying me.</span></button>
+          <button class="moon" data-angle="130" data-open="ideas"><span class="moon-label">Ideas I Still Think About</span><span class="moon-teaser">Useful ideas that had more future than the moment allowed.</span></button>
+          <button class="moon" data-angle="225" data-open="experiments"><span class="moon-label">Experiments</span><span class="moon-teaser">Built, building and exploring.</span></button>
+          <button class="moon" data-angle="320" data-open="stories"><span class="moon-label">Stories From My Head</span><span class="moon-teaser">Sci-fi ideas, stories and worlds that exist beyond engineering.</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="constellation" id="constellation" style="left:12vw;top:24vh;width:130px;height:90px">
+      <i class="star" style="left:4px;top:47px"></i><i class="star" style="left:36px;top:18px"></i><i class="star" style="left:70px;top:55px"></i><i class="star" style="left:112px;top:24px"></i><i class="star" style="left:95px;top:78px"></i>
+      <span style="left:36px;top:92px">Hidden constellations</span>
+    </div>
+  </main>
+
+  <div class="hint">Drag space to rotate · Hover a world to focus · Click to enter</div>
+
+  <section id="detail" aria-live="polite">
+    <button class="detail-back" id="detailBack">← Return to Orbit</button>
+    <div class="detail-shell">
+      <div class="detail-kicker" id="detailKicker"></div>
+      <h2 class="detail-title" id="detailTitle"></h2>
+      <p class="detail-lede" id="detailLede"></p>
+      <div class="detail-grid" id="detailGrid"></div>
+      <div class="detail-quote" id="detailQuote"></div>
+    </div>
+  </section>
+
+  <div id="ship"><div class="ship-body"></div><div class="ship-flame"></div></div>
+
+<script>
+(() => {
+  const config = {
+    email: 'YOUR_EMAIL_HERE',
+    linkedin: 'YOUR_LINKEDIN_HERE'
+  };
+
+  const data = {
+    professional: {
+      kicker:'Professional World', title:'Professional',
+      lede:'Engineering work should be understood through the problems changed, not only the technologies listed.',
+      cards:[
+        ['What I focus on','Data platforms, ETL/ELT, migration, automation, performance and production reliability.'],
+        ['How I think','If I face the same manual problem repeatedly, I assume others do too and start looking for a better system.'],
+        ['What matters','Useful engineering that reduces effort, improves clarity and keeps working after the first demo.'],
+        ['Explore next','Lineage Intelligence, Automation That Saved Hours, Systems I Improved and Engineering Journey.']
+      ],
+      quote:'The universe can impress people. The work has to convince them.'
+    },
+    lineage: {
+      kicker:'Professional · Case Study', title:'Lineage Intelligence',
+      lede:'A job and data-lineage idea I still think had a much larger future if it had received the right ownership and momentum.',
+      cards:[
+        ['Problem','Understanding relationships between jobs and data flows required too much manual knowledge and context.'],
+        ['Observation','If one team struggles to discover lineage, many others are probably solving the same problem repeatedly.'],
+        ['Build','I created a lineage-oriented utility that people could actually use instead of relying only on tribal knowledge.'],
+        ['Potential','People used it, but I still believe stronger promotion and continued development could have turned it into a widely used internal product.']
+      ],
+      quote:'Some ideas stop being projects in your head. They become the things you keep thinking about.'
+    },
+    automation: {
+      kicker:'Professional · Case Study', title:'Automation That Saved Hours',
+      lede:'Around five years ago, repeated user incidents made me ask a simple question: why are we solving the same thing manually again?',
+      cards:[
+        ['Trigger','Recurring incidents were consuming team time through repeated analysis and resolution steps.'],
+        ['Idea','Capture the reasoning and automate the portions that did not require a human decision.'],
+        ['Utility','I built a tool that could analyze and automatically resolve selected incident patterns.'],
+        ['Impact','It saved hours of manual effort for the team and reinforced the way I approach repetitive operational work.']
+      ],
+      quote:'Manual repetition almost always looks like an invitation to redesign the process.'
+    },
+    systems: {
+      kicker:'Professional', title:'Systems I Improved',
+      lede:'The most interesting engineering work is often not starting from zero. It is making an existing system faster, clearer, safer or easier to operate.',
+      cards:[
+        ['Performance','Batch optimization and removing unnecessary processing or bottlenecks.'],
+        ['Modernization','Moving legacy data workloads toward modern platforms and patterns.'],
+        ['Reliability','Improving production behavior, supportability and repeatable operations.'],
+        ['Migration','Working across large data movement and platform transitions with validation and controlled cutovers.']
+      ],
+      quote:'Improvement is still creation.'
+    },
+    journey: {
+      kicker:'Professional', title:'Engineering Journey',
+      lede:'A career built around enterprise data, migrations, platforms, production systems and the instinct to make repetitive work disappear.',
+      cards:[
+        ['Core','SQL, Python, PySpark and data engineering fundamentals.'],
+        ['Platforms','Snowflake, Teradata, Databricks, Hadoop and enterprise data warehouses.'],
+        ['Pipelines','ETL/ELT, Informatica, orchestration, migrations and downstream processing.'],
+        ['Beyond delivery','Mentoring, incident support, stakeholder coordination and internal utilities.']
+      ],
+      quote:'The tools changed. The instinct to improve the system did not.'
+    },
+    knowme: {
+      kicker:'Know Me', title:'Know Me',
+      lede:'People usually meet the chill version first. The rest takes a little more exploration.',
+      cards:[
+        ['Curious','Science, politics, human behavior, technology and questions without easy answers.'],
+        ['Selective','Easygoing with most people, but much more sensitive when it comes to the people I am genuinely close to.'],
+        ['Comfort','Rain, cloudy skies, mountains, night beaches, music, my village and sometimes simply my room.'],
+        ['Dreaming','Space, time travel, ancient civilizations, alternate lives and a peaceful future.']
+      ],
+      quote:'You probably know one version of me. There are a few more orbiting around.'
+    },
+    chill: {
+      kicker:'Know Me', title:'Beyond the Chill Guy',
+      lede:'Most people see someone who laughs, jokes and keeps things easy. That is real, just not complete.',
+      cards:[
+        ['What people see','Chill, easygoing, laughing often and usually trying to make other people laugh too.'],
+        ['What stays underneath','I overthink more than people expect and become sensitive mainly with people I am genuinely close to.'],
+        ['Connection','Expressive eye contact and genuine presence matter to me more than formal gestures.'],
+        ['Respect','Being ignored, dismissed or judged after opening up affects me more than casual disagreements do.']
+      ],
+      quote:'The lighter version of me is real. So is the quieter one behind it.'
+    },
+    wonder: {
+      kicker:'Know Me · Curiosity', title:'Things I Wonder About',
+      lede:'The questions I return to are usually bigger than the answers available.',
+      cards:[
+        ['Origins','Where did humans really come from, and why did intelligence evolve so differently in us?'],
+        ['Existence','Does God exist, and what would a definite answer actually change?'],
+        ['Life','Why does Earth appear so extraordinary for living organisms, and are we actually alone?'],
+        ['Time','Even if time travel is impossible, I would still want to understand exactly why.']
+      ],
+      quote:'I like questions that keep the imagination working after the video ends.'
+    },
+    peace: {
+      kicker:'Know Me', title:'My Kind of Peace',
+      lede:'My favorite atmosphere is rarely loud. It is usually rain, cold weather, cloudy skies, stars, music or silence.',
+      cards:[
+        ['Weather','Rain, cold air and cloudy skies instantly feel calmer to me.'],
+        ['Places','A quiet hill stay, a beach at night, my village or simply my own room.'],
+        ['Sound','Soothing instrumental music when thoughts are loud, or complete silence when even music feels like too much.'],
+        ['Travel','An open bus window, a train door, changing landscapes, good music and the right people.']
+      ],
+      quote:'Sometimes peace is not a destination. It is weather, music and the people beside you.'
+    },
+    alternate: {
+      kicker:'Know Me', title:'Alternate Lives',
+      lede:'If life had branched differently, I can imagine three versions of myself surprisingly clearly.',
+      cards:[
+        ['Astrophysicist','A life spent understanding the universe rather than only being fascinated by it.'],
+        ['Tech creator','Talking about gadgets, launches and technical details is something I have naturally done for friends and family for years.'],
+        ['Farmer','A quieter life closer to my village, land, family and a slower routine.'],
+        ['The real dream','A beautiful family, less stressful work, travel, and enough freedom to enjoy the life around the work.']
+      ],
+      quote:'The lives are different. The curiosity and need for freedom are the same.'
+    },
+    pandora: {
+      kicker:'Project Pandora', title:'Project Pandora',
+      lede:'Where ideas become experiments: tools, utilities, concepts, stories and things I build because I cannot leave the problem alone.',
+      cards:[
+        ['Built','Useful things that crossed the line from idea to working solution.'],
+        ['Building','Concepts actively becoming products, prototypes or experiments.'],
+        ['Exploring','Questions and ideas that are not ready to become projects yet.'],
+        ['Why Pandora','Not a polished project gallery. A place to show the thinking and experimentation behind what I create.']
+      ],
+      quote:'Not every useful idea begins with a roadmap. Sometimes it begins with irritation.'
+    },
+    manual: {
+      kicker:'Project Pandora', title:"Things That Shouldn't Be Manual",
+      lede:'The fastest way to get my attention is to make me repeat the same manual effort often enough.',
+      cards:[
+        ['Pattern','If I am doing something manually again and again, I start looking for the repeatable logic.'],
+        ['Question','Can the system do this instead of the person?'],
+        ['Examples','Incident analysis utilities, data helpers, workflow shortcuts and internal productivity tools.'],
+        ['Goal','Reduce unnecessary effort without making the solution harder to use than the problem itself.']
+      ],
+      quote:'Repetition is usually the first sign that there may be a better design.'
+    },
+    ideas: {
+      kicker:'Project Pandora', title:'Ideas I Still Think About',
+      lede:'Some ideas are useful enough that even after the project ends, you keep mentally designing the next version.',
+      cards:[
+        ['Lineage','A tool that people used, but that I still believe had the potential to become a much broader internal product.'],
+        ['Product instinct','Usage is not always the end. Sometimes the interesting question is what the idea could become with proper ownership.'],
+        ['Unfinished','Not every concept gets the timing, sponsorship or space it needs.'],
+        ['Pandora rule','Keep the good idea alive even when the original project is over.']
+      ],
+      quote:'Unrealized potential can be more motivating than a finished feature.'
+    },
+    experiments: {
+      kicker:'Project Pandora', title:'Experiments',
+      lede:'A living area for things that are built, building or still being explored.',
+      cards:[
+        ['Built','Utilities, automations and working prototypes.'],
+        ['Building','Interactive portfolio ideas, JobLens concepts and personal product experiments.'],
+        ['Exploring','AI-assisted workflows, new interfaces and ways to make information easier to discover.'],
+        ['Rule','Experiments are allowed to be incomplete. They still need a clear reason to exist.']
+      ],
+      quote:'The purpose of an experiment is not to look finished. It is to answer something.'
+    },
+    stories: {
+      kicker:'Project Pandora', title:'Stories From My Head',
+      lede:'The creative side people do not always see: sci-fi ideas, fictional situations and stories that exist outside engineering.',
+      cards:[
+        ['Sci-fi','I naturally imagine myself inside the worlds I watch, especially anything involving time travel.'],
+        ['Writing','Stories are one of the places where ideas that do not belong in code get to exist.'],
+        ['Worlds','Ancient civilizations, space, time, human behavior and alternate realities are recurring ingredients.'],
+        ['Why include this','Because creativity is not only the utility I built at work. It is also the ideas nobody asked me to build.']
+      ],
+      quote:'I would rather people discover the creative side naturally than hear me announce it.'
+    }
+  };
+
+  const opening = document.getElementById('opening');
+  const handle = document.getElementById('dragHandle');
+  const curtain = document.getElementById('curtain');
+  const leftCurtain = curtain.children[0];
+  const rightCurtain = curtain.children[1];
+  let dragStart = 0, dragValue = 0, openingDragging = false, entered = false;
+
+  function updateOpeningDrag(v) {
+    dragValue = Math.max(0, Math.min(110, v));
+    handle.style.transform = `translateY(${dragValue}px)`;
+    const p = dragValue / 110;
+    curtain.classList.toggle('active', p > .05);
+    leftCurtain.style.transform = `translateX(${-p*48}%) skewY(${p*2.2}deg) scaleX(${1-p*.07})`;
+    rightCurtain.style.transform = `translateX(${p*48}%) skewY(${-p*2.2}deg) scaleX(${1-p*.07})`;
+    curtain.style.background = `radial-gradient(circle at center, rgba(40,70,110,${p*.1}), transparent 50%)`;
+  }
+
+  function enterUniverse() {
+    if (entered) return;
+    entered = true;
+    updateOpeningDrag(110);
+    setTimeout(() => {
+      document.body.classList.add('entered');
+      opening.classList.add('done');
+      curtain.style.transition = 'opacity .9s ease';
+      curtain.style.opacity = '0';
+      setTimeout(() => curtain.style.display='none', 950);
+    }, 220);
+  }
+
+  function pointerY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
+  handle.addEventListener('pointerdown', e => { openingDragging=true; dragStart=e.clientY-dragValue; handle.setPointerCapture(e.pointerId); });
+  handle.addEventListener('pointermove', e => { if(openingDragging) updateOpeningDrag(e.clientY-dragStart); });
+  handle.addEventListener('pointerup', e => { openingDragging=false; if(dragValue>68) enterUniverse(); else updateOpeningDrag(0); });
+  handle.addEventListener('keydown', e => { if(e.key==='Enter' || e.key===' ') enterUniverse(); });
+
+  // universe orbital engine
+  const scene = document.getElementById('scene');
+  const tilt = document.getElementById('sceneTilt');
+  const systems = [...document.querySelectorAll('.world-system')];
+  const sun = document.getElementById('sun');
+  let rotX = -4, rotY = 0, targetRotX=-4, targetRotY=0;
+  let universeDrag=false, lastX=0,lastY=0, velX=0,velY=0;
+  let startTime = performance.now();
+  let focusedWorld = null;
+
+  const layout = {
+    professional:{radiusX:330,radiusY:155,phase:3.45,speed:.000055,z:-35,type:'circle'},
+    knowme:{radiusX:315,radiusY:185,phase:5.55,speed:.000047,z:28,type:'ellipse'},
+    pandora:{radiusX:360,radiusY:205,phase:1.02,speed:.000064,z:5,type:'experimental'}
+  };
+
+  function setFocus(name){
+    focusedWorld = name;
+    systems.forEach(s=>{
+      const same=s.dataset.world===name;
+      s.classList.toggle('focused', same);
+      s.classList.toggle('dim', !!name && !same);
+    });
+  }
+
+  systems.forEach(sys=>{
+    const world = sys.querySelector('.world');
+    world.addEventListener('mouseenter', ()=>setFocus(sys.dataset.world));
+    sys.addEventListener('mouseleave', ()=>setFocus(null));
+  });
+
+  scene.addEventListener('pointerdown', e=>{
+    if(e.target.closest('button,a')) return;
+    universeDrag=true; scene.classList.add('dragging'); lastX=e.clientX; lastY=e.clientY; scene.setPointerCapture(e.pointerId);
+  });
+  scene.addEventListener('pointermove', e=>{
+    if(!universeDrag) return;
+    const dx=e.clientX-lastX, dy=e.clientY-lastY;
+    targetRotY += dx*.17; targetRotX -= dy*.11;
+    targetRotX = Math.max(-22, Math.min(18,targetRotX));
+    velX=dx*.025; velY=dy*.018; lastX=e.clientX; lastY=e.clientY;
+  });
+  scene.addEventListener('pointerup', ()=>{ universeDrag=false; scene.classList.remove('dragging'); });
+
+  function updateMoons(sys, time){
+    const type=sys.dataset.world;
+    sys.querySelectorAll('.moon').forEach((m,i)=>{
+      let a=(+m.dataset.angle)*Math.PI/180;
+      let speed=.00018;
+      if(type==='professional') a += time*speed;
+      if(type==='knowme') a += time*speed*.72;
+      if(type==='pandora') a += time*speed*(.55+i*.09);
+      let rx=type==='knowme'?118:114, ry=type==='knowme'?84:114;
+      if(type==='pandora'){ rx=110 + (i%2)*18; ry=78 + ((i+1)%2)*24; }
+      const x=Math.cos(a)*rx, y=Math.sin(a)*ry;
+      const z=type==='pandora'?Math.sin(a*1.7)*26:Math.sin(a)*12;
+      m.style.transform = `translate3d(${x}px,${y}px,${z}px) scale(${sys.classList.contains('focused')?1:.7})`;
+    });
+  }
+
+  function animate(t){
+    const elapsed=t-startTime;
+    if(!universeDrag){
+      targetRotY += velX; targetRotX += velY; velX*=.96; velY*=.94;
+    }
+    rotX += (targetRotX-rotX)*.06; rotY += (targetRotY-rotY)*.06;
+    tilt.style.transform=`rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+
+    systems.forEach(sys=>{
+      const c=layout[sys.dataset.world];
+      let a=c.phase + elapsed*c.speed;
+      if(sys.dataset.world==='pandora') a += Math.sin(elapsed*.00023)*.08;
+      const x=Math.cos(a)*c.radiusX;
+      const y=Math.sin(a)*(c.radiusY);
+      const z=c.z + Math.sin(a*1.35)*55;
+      const scale=.86 + (z+90)/360;
+      sys.style.transform=`translate3d(${x}px,${y}px,${z}px) scale(${scale})`;
+      updateMoons(sys, elapsed);
+    });
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  // starship cursor and subtle gravity
+  const ship=document.getElementById('ship');
+  const flame=ship.querySelector('.ship-flame');
+  let mx=innerWidth/2,my=innerHeight/2,smx=mx,smy=my,pmx=mx,pmy=my,angle=0;
+  window.addEventListener('pointermove', e=>{
+    mx=e.clientX; my=e.clientY;
+    const speed=Math.hypot(mx-pmx,my-pmy);
+    flame.style.transform=`scaleY(${Math.min(2.2,.65+speed*.08)})`;
+    flame.style.opacity=Math.min(.9,.28+speed*.025);
+    pmx=mx;pmy=my;
+  });
+  function shipLoop(){
+    smx += (mx-smx)*.24; smy += (my-smy)*.24;
+    const dx=mx-smx, dy=my-smy;
+    angle=Math.atan2(dy,dx)*180/Math.PI+90;
+    ship.style.transform=`translate(${smx-12}px,${smy-12}px) rotate(${angle}deg)`;
+    requestAnimationFrame(shipLoop);
+  } requestAnimationFrame(shipLoop);
+
+  document.querySelectorAll('.world,.moon').forEach(el=>{
+    el.addEventListener('pointermove', e=>{
+      const r=el.getBoundingClientRect();
+      const dx=(e.clientX-(r.left+r.width/2))/r.width;
+      const dy=(e.clientY-(r.top+r.height/2))/r.height;
+      const p=el.querySelector('.planet');
+      if(p) p.style.transform=`translate(${dx*5}px,${dy*5}px) scale(1.06)`;
+      else el.style.filter=`drop-shadow(${dx*3}px ${dy*3}px 6px rgba(180,210,255,.2))`;
+    });
+    el.addEventListener('pointerleave', ()=>{
+      const p=el.querySelector('.planet'); if(p) p.style.transform=''; else el.style.filter='';
+    });
+  });
+
+  // details + trail
+  const detail=document.getElementById('detail');
+  const title=document.getElementById('detailTitle');
+  const kicker=document.getElementById('detailKicker');
+  const lede=document.getElementById('detailLede');
+  const grid=document.getElementById('detailGrid');
+  const quote=document.getElementById('detailQuote');
+  const trailSvg=document.getElementById('trailSvg');
+  const visited=[];
+
+  function addTrailPoint(key){
+    if(visited.includes(key)) return;
+    visited.push(key);
+    const idx=visited.length-1;
+    const pts=[ [520,500],[640,340],[770,510],[640,690],[430,735],[275,600],[250,360],[390,250],[570,220],[785,305],[840,640] ];
+    const p=pts[idx%pts.length];
+    if(idx>0){
+      const q=pts[(idx-1)%pts.length];
+      trailSvg.insertAdjacentHTML('beforeend',`<path class="trail-line" d="M ${q[0]} ${q[1]} Q ${(q[0]+p[0])/2+25} ${(q[1]+p[1])/2-20}, ${p[0]} ${p[1]}"/>`);
+    }
+    trailSvg.insertAdjacentHTML('beforeend',`<circle class="trail-dot" cx="${p[0]}" cy="${p[1]}" r="2.4"/>`);
+    const level=Math.min(4,visited.length)/4; sun.style.setProperty('--sun-glow1', `${40+level*56}px`); sun.style.setProperty('--sun-glow2', `${85+level*72}px`); sun.style.setProperty('--sun-alpha', `${.20+level*.12}`);
+  }
+
+  function openDetail(key){
+    const d=data[key]||data.professional;
+    kicker.textContent=d.kicker; title.textContent=d.title; lede.textContent=d.lede; quote.textContent=d.quote||'';
+    grid.innerHTML=d.cards.map((c,i)=>`<article class="detail-card"><small>${String(i+1).padStart(2,'0')}</small><h3>${c[0]}</h3><p>${c[1]}</p></article>`).join('');
+    detail.classList.add('open'); addTrailPoint(key);
+  }
+  document.querySelectorAll('[data-open]').forEach(el=>el.addEventListener('click', e=>{ e.stopPropagation(); openDetail(el.dataset.open); }));
+  document.getElementById('detailBack').addEventListener('click',()=>detail.classList.remove('open'));
+  document.getElementById('universeHome').addEventListener('click',e=>{e.preventDefault(); detail.classList.remove('open'); setFocus(null);});
+
+  document.getElementById('signalLink').href = config.email==='YOUR_EMAIL_HERE' ? '#' : `mailto:${config.email}`;
+  document.getElementById('commsLink').href = config.linkedin==='YOUR_LINKEDIN_HERE' ? '#' : config.linkedin;
+  document.getElementById('signalLink').addEventListener('click',e=>{if(config.email==='YOUR_EMAIL_HERE'){e.preventDefault(); alert('Add your email in the config section of index.html.');}});
+  document.getElementById('commsLink').addEventListener('click',e=>{if(config.linkedin==='YOUR_LINKEDIN_HERE'){e.preventDefault(); alert('Add your LinkedIn URL in the config section of index.html.');}});
+})();
+</script>
+</body>
+</html>

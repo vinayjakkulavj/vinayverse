@@ -1,0 +1,497 @@
+.entryGate {
+  --gate-progress: 0;
+  --intro-pull: 0;
+  --handle-y: 0px;
+  --aperture-x: 50%;
+  --aperture-y: 76%;
+  --aperture-inner: 0px;
+  --aperture-radius: 0px;
+  --copy-offset: -10vh;
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  isolation: isolate;
+  overflow: hidden;
+  color: #edece5;
+  outline: none;
+}
+
+.entryVeil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 51% 42%, rgb(111 118 105 / 4%), transparent 48%),
+    radial-gradient(ellipse at 50% 44%, #070b0ffb 8%, #04080bfa 58%, #020507 100%);
+  -webkit-mask-image: radial-gradient(circle at var(--aperture-x) var(--aperture-y), transparent var(--aperture-inner), #000 var(--aperture-radius));
+  mask-image: radial-gradient(circle at var(--aperture-x) var(--aperture-y), transparent var(--aperture-inner), #000 var(--aperture-radius));
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.entryVeil::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.74' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.65'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+.entryFlight {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+}
+
+.entryFooter {
+  position: absolute;
+  left: clamp(24px, 4vw, 64px);
+  right: clamp(24px, 4vw, 64px);
+  bottom: max(26px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 8px;
+  line-height: 1.5;
+  letter-spacing: 0.14em;
+  color: #525957;
+  opacity: clamp(0, calc(1 - var(--gate-progress) * 1.5), 1);
+}
+
+.entryCopy {
+  position: relative;
+  z-index: 1;
+  width: min(1100px, 94vw);
+  text-align: center;
+  transform: translateY(calc(var(--copy-offset) - var(--intro-pull) * 60px));
+  opacity: clamp(0, calc(1 - var(--gate-progress) * 1.2), 1);
+  will-change: transform, opacity;
+}
+
+.entryEyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: clamp(26px, 4vh, 42px);
+  color: #898e85;
+  font-size: clamp(8px, 0.75vw, 10px);
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  line-height: 1.7;
+}
+
+.entryEyebrow span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #c2af82;
+  box-shadow: 0 0 12px rgb(194 175 130 / 25%);
+}
+
+.entryTitle {
+  margin: 0;
+  font-family: inherit;
+  font-size: clamp(56px, 9vw, 136px);
+  line-height: 0.93;
+  font-weight: 400;
+  letter-spacing: -0.075em;
+  text-wrap: balance;
+}
+
+.entryTitle > span {
+  color: #c3ba9f;
+}
+
+.mobileBreak {
+  display: none;
+}
+
+.entryDescription {
+  margin: 30px 0 0;
+  color: #989b94;
+  font-size: clamp(14px, 1.3vw, 17px);
+  line-height: 1.6;
+  font-weight: 300;
+  letter-spacing: 0.005em;
+}
+
+.entryCoordinates {
+  margin-top: 18px;
+  color: #4e5653;
+  font-size: 8px;
+  line-height: 1.5;
+  letter-spacing: 0.19em;
+}
+
+.entryControls {
+  position: absolute;
+  bottom: clamp(56px, 9vh, 120px);
+  left: 50%;
+  width: 184px;
+  margin-left: -92px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dragZone {
+  position: relative;
+  width: 184px;
+  height: 164px;
+  display: flex;
+  justify-content: center;
+}
+
+.dragTrack {
+  position: absolute;
+  width: 1px;
+  height: 104px;
+  top: 28px;
+  background: linear-gradient(rgb(207 211 190 / 17%), rgb(207 211 190 / 8%) 74%, transparent);
+  opacity: 0.6;
+}
+
+.dragDestination {
+  position: absolute;
+  top: 117px;
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgb(195 202 185 / 10%);
+  border-radius: 50%;
+  opacity: clamp(0.15, calc(0.35 + var(--gate-progress) * 0.65), 1);
+  transform: scale(calc(0.7 + var(--gate-progress) * 0.3));
+}
+
+.dragHandle {
+  position: absolute;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: 1px solid rgb(229 233 218 / 21%);
+  border-radius: 50%;
+  color: #c6c8b9;
+  background: linear-gradient(145deg, rgb(255 255 255 / 4%), rgb(8 12 12 / 97%));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%), 0 8px 26px rgb(0 0 0 / 20%);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transform: translateY(var(--handle-y));
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.dragHandle::after {
+  position: absolute;
+  inset: -5px;
+  content: "";
+  border-radius: inherit;
+  border: 1px solid rgb(216 205 171 / 9%);
+  opacity: calc(var(--gate-progress) * 0.9);
+}
+
+.dragHandle svg {
+  width: 22px;
+  height: 22px;
+  opacity: 0.8;
+}
+
+.dragHandle:hover {
+  border-color: rgb(229 233 218 / 44%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%), 0 0 32px rgb(213 196 151 / 6%);
+}
+
+.entryGate[data-dragging] .dragHandle {
+  cursor: grabbing;
+  border-color: rgb(217 206 172 / 50%);
+}
+
+.dragHandle:focus-visible,
+.enterButton:focus-visible {
+  outline: 2px solid #d8d0ae;
+  outline-offset: 6px;
+}
+
+.dragLabel,
+.releaseLabel {
+  position: absolute;
+  top: 78px;
+  width: 184px;
+  text-align: center;
+  color: #a2a69a;
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.11em;
+  pointer-events: none;
+}
+
+.dragLabel {
+  opacity: clamp(0, calc(1 - var(--gate-progress) * 2.4), 1);
+}
+
+.releaseLabel {
+  top: 68px;
+  opacity: 0;
+  color: #c6c3af;
+  transform: translateY(var(--handle-y));
+  transition: opacity 140ms ease;
+}
+
+.entryGate[data-release-ready] .releaseLabel {
+  opacity: 1;
+}
+
+.enterButton {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: #757f77;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.025em;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.enterButton span {
+  color: #9caa9b;
+  font-size: 14px;
+}
+
+.enterButton:hover {
+  color: #d9ddcf;
+}
+
+.entryGate[data-entering] {
+  pointer-events: none;
+}
+
+.entryGate[data-entering] .dragLabel,
+.entryGate[data-entering] .releaseLabel {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.entryGate[data-reduced-motion] .entryFlight {
+  will-change: auto;
+}
+
+.entryGate[data-reduced-motion] .entryCopy {
+  transform: translateY(var(--copy-offset));
+}
+
+@supports not ((mask-image: radial-gradient(black, transparent)) or (-webkit-mask-image: radial-gradient(black, transparent))) {
+  .entryVeil {
+    opacity: calc(1 - var(--gate-progress));
+  }
+}
+
+.screenReaderOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.starshipCursor {
+  --cursor-thrust: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 999;
+  width: 20px;
+  height: 24px;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 120ms ease;
+  will-change: transform;
+}
+
+.cursorShip {
+  position: absolute;
+  inset: 0;
+  transform-origin: 10px 3px;
+}
+
+.cursorSvg {
+  position: absolute;
+  inset: 0;
+  width: 20px;
+  height: 24px;
+  filter: drop-shadow(0 0 3px rgb(171 211 226 / 20%));
+}
+
+.cursorFlame {
+  position: absolute;
+  left: 8.5px;
+  top: 17px;
+  width: 3px;
+  height: 8px;
+  border-radius: 30% 30% 90% 90%;
+  background: linear-gradient(#d9fcff, #76b2c9 28%, rgb(95 162 215 / 0%));
+  transform: scaleY(calc(0.22 + var(--cursor-thrust)));
+  transform-origin: center top;
+  opacity: calc(0.18 + var(--cursor-thrust) * 0.3);
+  filter: blur(0.3px);
+}
+
+.cursorPulse {
+  position: absolute;
+  left: 10px;
+  top: 3px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgb(184 219 226 / 45%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+
+:global(html[data-starship-cursor="true"]),
+:global(html[data-starship-cursor="true"] *) {
+  cursor: none !important;
+}
+
+@media (max-width: 700px) {
+  .entryCopy {
+    width: 90vw;
+    --copy-offset: -14vh;
+  }
+
+  .entryTitle {
+    font-size: clamp(62px, 16vw, 106px);
+    line-height: 0.95;
+    letter-spacing: -0.065em;
+  }
+
+  .mobileBreak {
+    display: block;
+  }
+
+  .entryEyebrow {
+    font-size: 7px;
+    letter-spacing: 0.18em;
+    margin-bottom: 28px;
+  }
+
+  .entryDescription {
+    font-size: 14px;
+    margin-top: 25px;
+  }
+
+  .entryCoordinates {
+    font-size: 7px;
+    letter-spacing: 0.12em;
+  }
+
+  .entryControls {
+    bottom: max(65px, calc(env(safe-area-inset-bottom) + 40px));
+  }
+
+  .entryFooter {
+    font-size: 6px;
+    letter-spacing: 0.08em;
+  }
+}
+
+@media (max-height: 700px) and (min-width: 701px) {
+  .entryCopy {
+    --copy-offset: -15vh;
+  }
+
+  .entryTitle {
+    font-size: clamp(58px, 8vw, 104px);
+  }
+
+  .entryEyebrow {
+    margin-bottom: 22px;
+  }
+
+  .entryDescription {
+    margin-top: 22px;
+  }
+
+  .entryControls {
+    bottom: 42px;
+  }
+}
+
+@media (max-height: 560px) {
+  .entryCopy {
+    --copy-offset: -13vh;
+  }
+
+  .entryTitle {
+    font-size: clamp(44px, 7vw, 76px);
+  }
+
+  .mobileBreak {
+    display: none;
+  }
+
+  .entryEyebrow {
+    margin-bottom: 16px;
+  }
+
+  .entryDescription {
+    margin-top: 18px;
+  }
+
+  .entryCoordinates,
+  .dragZone {
+    display: none;
+  }
+
+  .entryControls {
+    bottom: 54px;
+  }
+
+  .enterButton {
+    min-height: 44px;
+    padding: 8px 18px;
+    border: 1px solid rgb(229 233 218 / 18%);
+    border-radius: 100px;
+    color: #bbc1b1;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .starshipCursor {
+    display: none;
+  }
+
+  :global(html[data-starship-cursor="true"]),
+  :global(html[data-starship-cursor="true"] *) {
+    cursor: auto !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dragHandle,
+  .enterButton,
+  .releaseLabel,
+  .entryGate[data-entering] .dragLabel,
+  .entryGate[data-entering] .releaseLabel {
+    transition: none;
+  }
+}
