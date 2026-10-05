@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getWorld, type Topic } from "@/data/portfolio";
 import { professionalResume } from "@/data/resume";
 import ProfessionalResumeContent, { type ProfessionalResumeSection } from "./ProfessionalResumeContent";
+import UniverseLink from "./UniverseLink";
 import styles from "./ContentView.module.css";
 
 type ContentViewProps = { topic: Topic; related: Topic[] };
@@ -51,7 +52,7 @@ export default function ContentView({ topic, related }: ContentViewProps) {
       <div className={styles.starField} aria-hidden="true" />
       <div className={styles.container}>
         <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-          <Link href={`/?world=${topic.world}`} className={styles.orbitLink}><Arrow back />Return to orbit</Link>
+          <UniverseLink href={`/?world=${topic.world}`} className={styles.orbitLink}><Arrow back />Return to orbit</UniverseLink>
           <span className={styles.breadcrumbSeparator} aria-hidden="true">/</span>
           {isOverview ? <span aria-current="page">{world.title}</span> : <Link href={`/explore/${world.slug}`}>{world.title}</Link>}
         </nav>
@@ -139,7 +140,7 @@ export default function ContentView({ topic, related }: ContentViewProps) {
 
         <footer className={styles.footer}>
           <span className={styles.footerWorld}><span className={styles.worldDot} aria-hidden="true" />{world.title}</span>
-          <Link href={`/?world=${topic.world}`} className={styles.orbitLink}><Arrow back />Return to orbit</Link>
+          <UniverseLink href={`/?world=${topic.world}`} className={styles.orbitLink}><Arrow back />Return to orbit</UniverseLink>
         </footer>
       </div>
     </main>

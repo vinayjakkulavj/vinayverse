@@ -73,8 +73,6 @@ export default function UniverseExperience() {
   const transitionLock = useRef(false);
   const mapButton = useRef<HTMLButtonElement>(null);
 
-  useLayoutEffect(() => { restartOpening(); }, [restartOpening]);
-
   useEffect(() => {
     const query = window.matchMedia('(max-width: 700px)');
     const update = () => setSmall(query.matches);
@@ -134,8 +132,8 @@ export default function UniverseExperience() {
   const closeAtlas = useCallback(() => setAtlas(false), []);
   const revealOpening = useCallback((progress: number) => main.current?.style.setProperty('--intro-reveal', String(progress)), []);
   const opening = !ready || !entered;
-  useEffect(() => {
-    if (!opening) return;
+  // Reset navigation on home activation, including cached returns that skip the intro.
+  useLayoutEffect(() => {
     transitionLock.current = false;
     setEntering(null);
     setAtlas(false);
@@ -145,7 +143,7 @@ export default function UniverseExperience() {
     suppressClick.current = false;
     setDragging(false);
     inertia.current = { x: 0, y: 0 };
-    main.current?.style.setProperty('--intro-reveal', '0');
+    main.current?.style.setProperty('--intro-reveal', opening ? '0' : '1');
   }, [opening]);
   const finishOpening = () => {
     enter();
