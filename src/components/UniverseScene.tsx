@@ -2,7 +2,7 @@
 
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Billboard, Html, Line } from '@react-three/drei';
-import { useEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from 'react';
 import { AdditiveBlending, BackSide, Color, Group, Mesh, PerspectiveCamera, ShaderMaterial, Vector3 } from 'three';
 import { worlds, topics, getTopic, type World, type WorldId } from '@/data/portfolio';
 import { planetVertex, planetFragment, atmosphereFragment, haloVertex, haloFragment } from '@/lib/shaders';
@@ -81,10 +81,10 @@ function Sun({ visited, reducedMotion }: { visited: string[]; focus: WorldId | n
   return <Planet radius={.9} color="#bc4b2e" kind={0} dim={false} reducedMotion={reducedMotion} energy={energy}/>;
 }
 
-function Moon({ slug, color, kind, index, active, reducedMotion, onEnter, objects, visited, labelPortal, small }: { slug: string; color: string; kind: number; index: number; active: boolean; reducedMotion: boolean; onEnter: (slug: string) => void; objects: ObjectMap; visited: string[]; labelPortal: RefObject<HTMLElement>; small: boolean }) {
+function Moon({ slug, color, kind, index, count, active, reducedMotion, onEnter, objects, visited, labelPortal, small }: { slug: string; color: string; kind: number; index: number; count: number; active: boolean; reducedMotion: boolean; onEnter: (slug: string) => void; objects: ObjectMap; visited: string[]; labelPortal: RefObject<HTMLElement>; small: boolean }) {
   const group = useRef<Group>(null);
   const body = useRef<Group>(null);
-  const phase = useRef(index*Math.PI/2 + .45);
+  const phase = useRef(index*Math.PI*2/count + .45);
   const sampleOrbit = useMemo(() => createOrbitSampler({ radius: 1.65, height: kind === 2 ? .83 : .95, depth: .22, node: 0 }), [kind]);
   const initialPosition = useMemo(() => sampleOrbit(new Vector3(),phase.current), [sampleOrbit]);
   const topic = getTopic(slug)!;
@@ -138,17 +138,23 @@ function WorldSystem({ world, index, focus, onFocus, onEnter, reducedMotion, obj
     </group>
     <Billboard><Html portal={labelPortal} center position={[0,-radius-.37,0]} zIndexRange={[6,0]}><button className="planet-label" data-gravity data-active={active} style={{ opacity: dim ? .4 : 1 }} onFocus={(event) => { if(event.currentTarget.matches(':focus-visible')) onFocus(world.id); }} onClick={choose} aria-label={`${active ? 'Enter' : 'Focus'} ${world.title}`}><strong>{world.title}</strong><small>{world.subtitle}</small></button></Html></Billboard>
     {active && <Orbit radius={1.65} height={index===1?.83:.95} color={world.color} opacity={.2} tilt={.22}/>}
-    {world.topics.map((slug, moonIndex) => <Moon key={slug} slug={slug} index={moonIndex} color={world.color} kind={index+1} active={active} reducedMotion={reducedMotion} onEnter={onEnter} objects={objects} visited={visited} labelPortal={labelPortal} small={small}/>)}
+    {world.topics.map((slug, moonIndex) => <Moon key={slug} slug={slug} index={moonIndex} count={world.topics.length} color={world.color} kind={index+1} active={active} reducedMotion={reducedMotion} onEnter={onEnter} objects={objects} visited={visited} labelPortal={labelPortal} small={small}/>)}
   </group>;
 }
 
-const constellationPositions: [number,number,number][] = [[-3.5,2.35,-1],[2.9,2.4,-1],[3.7,-2.9,-1],[-3.0,-3.2,-1],[-5.5,.9,-1],[1.75,-3.15,-1],[5.3,1.1,-1]];
+const constellationPositions: Record<string, [number,number,number]> = {
+  soundtrack: [3.7,-2.9,-1],
+  'on-the-road': [-3.0,-3.2,-1],
+  'small-things': [-5.5,.9,-1],
+  science: [1.75,-3.15,-1],
+  'what-if': [5.3,1.1,-1],
+};
 
 function Constellations({ onEnter, focus, objects, labelPortal }: { onEnter: SceneProps['onEnter']; focus: WorldId | null; objects: ObjectMap; labelPortal: RefObject<HTMLElement> }) {
   const constellationTopics = topics.filter((topic)=>topic.kind==='constellation');
   const [active, setActive] = useState<string | null>(null);
   const points = useMemo(() => [new Vector3(-.4,.05,0),new Vector3(-.13,.26,0),new Vector3(.05,-.08,0),new Vector3(.35,.14,0)],[]);
-  return <group>{constellationTopics.map((topic,index) => <group key={topic.slug} position={constellationPositions[index]} ref={(node) => { if (node) objects.current.set(topic.slug, node); else objects.current.delete(topic.slug); }}>
+  return <group>{constellationTopics.map((topic) => <group key={topic.slug} position={constellationPositions[topic.slug]} ref={(node) => { if (node) objects.current.set(topic.slug, node); else objects.current.delete(topic.slug); }}>
     <Line points={points} color="#8da8d1" transparent opacity={active===topic.slug?.45:.035} lineWidth={.7}/>
     {points.map((point,starIndex)=><mesh key={starIndex} position={point}><sphereGeometry args={[active===topic.slug?.026:.015,8,6]}/><meshBasicMaterial color="#b5cbe9" transparent opacity={focus?.2:.6}/></mesh>)}
     <Html portal={labelPortal} center position={[0,-.27,0]} zIndexRange={[4,0]}><button className="constellation-label" onPointerEnter={()=>setActive(topic.slug)} onPointerLeave={()=>setActive(null)} onFocus={()=>setActive(topic.slug)} onBlur={()=>setActive(null)} onClick={()=>onEnter(topic.slug)} aria-label={`Discover ${topic.title}`} style={{ opacity: focus?.2:1 }}>{active===topic.slug?topic.title:'✧'}</button></Html>
@@ -202,6 +208,82 @@ function CameraRig({ focus, objects, small, destination, reducedMotion }: { focu
   return null;
 }
 
+const compactWorldPositions: [number, number, number][] = [
+  [-1.95, -1.05, 0], // Professional: lower left.
+  [-1.95, 1.45, 0], // Know Me: upper left.
+  [2.12, .35, 0], // Project Pandora: right.
+];
+const compactSunPosition: [number, number, number] = [0, .12, -.2];
+
+function CompactWorld({ world, index, selected, onFocus, reducedMotion, labelPortal }: { world: World; index: number; selected: boolean; onFocus: SceneProps['onFocus']; reducedMotion: boolean; labelPortal: RefObject<HTMLElement> }) {
+  const radius = index === 0 ? .48 : index === 1 ? .46 : .53;
+  const select = () => onFocus(world.id);
+  return <group position={compactWorldPositions[index]}>
+    <group onClick={(event) => { event.stopPropagation(); select(); }}>
+      <Halo color={world.color} size={2.15} opacity={selected ? .2 : .07}/>
+      <Planet radius={radius} color={world.color} kind={index + 1} dim={false} reducedMotion={reducedMotion}/>
+      {index === 2 && <mesh rotation={[1.15,.25,-.38]}><ringGeometry args={[.77,1.03,64]}/><meshBasicMaterial color="#75b9ba" transparent opacity={.23} side={2} depthWrite={false}/></mesh>}
+      {/* A generous hit sphere supports taps around the visible planet. */}
+      <mesh>
+        <sphereGeometry args={[radius + .3, 16, 12]}/>
+        <meshBasicMaterial transparent opacity={0} colorWrite={false} depthWrite={false}/>
+      </mesh>
+    </group>
+    <Html portal={labelPortal} center position={[0,-radius-.6,0]} zIndexRange={[6,0]}>
+      <button className="planet-label compact-planet-label" data-world={world.id} data-selected={selected} aria-pressed={selected} aria-label={`Select ${world.title}`} onClick={(event) => { event.stopPropagation(); select(); }}>
+        <strong>{world.title}</strong>
+      </button>
+    </Html>
+  </group>;
+}
+
+function CompactCamera({ sunLabel }: { sunLabel: SceneProps['sunLabel'] }) {
+  const { camera, size, invalidate } = useThree();
+  const labelPoint = useMemo(() => new Vector3(), []);
+  const labelStyle = useRef<{ node: HTMLDivElement | null; transform: string }>({ node: null, transform: '' });
+  useLayoutEffect(() => {
+    if (!(camera instanceof PerspectiveCamera) || size.width <= 0 || size.height <= 0) return;
+    const aspect = size.width / size.height;
+    // Fit the fixed stations and their 104px labels into the actual short canvas.
+    const halfHeight = Math.max(2.7, 3.5 / aspect);
+    camera.aspect = aspect;
+    camera.position.set(0,-.22,halfHeight / Math.tan(42 * Math.PI / 360));
+    camera.lookAt(0,-.22,0);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+    invalidate();
+  }, [camera, size.width, size.height, invalidate]);
+  useFrame(() => {
+    const label = sunLabel.current;
+    if (!label) return;
+    // Project just below the compact sun, rather than the desktop scene origin.
+    labelPoint.set(compactSunPosition[0],compactSunPosition[1]-.97,compactSunPosition[2]).project(camera);
+    const transform = `translate3d(${((labelPoint.x*.5+.5)*size.width).toFixed(2)}px,${((-labelPoint.y*.5+.5)*size.height).toFixed(2)}px,0) translate(-50%,-50%)`;
+    if (labelStyle.current.node !== label || labelStyle.current.transform !== transform) label.style.transform = transform;
+    label.style.opacity = '1';
+    label.style.visibility = 'visible';
+    labelStyle.current.node = label;
+    labelStyle.current.transform = transform;
+  }, -.5);
+  return null;
+}
+
+function CompactScene({ focus, onFocus, reducedMotion, visited, sunLabel, labelPortal }: SceneProps) {
+  const backdropRotation = useRef({ x: -.06, y: -.02 });
+  return <>
+    <color attach="background" args={['#03050a']}/>
+    <CompactCamera sunLabel={sunLabel}/>
+    {/* Static phone stars retain the setting without travellers or parallax. */}
+    <CosmicBackdrop rotation={backdropRotation} reducedMotion={true} small={true}/>
+    <group position={compactSunPosition}>
+      <Orbit radius={2.42} height={.69} color="#8da4bf" opacity={.09}/>
+      <Orbit radius={2.75} height={.84} color="#8da4bf" opacity={.055}/>
+      <Planet radius={.67} color="#bc4b2e" kind={0} dim={false} reducedMotion={reducedMotion} energy={Math.min(visited.length / 12, 1)}/>
+    </group>
+    {worlds.map((world,index) => <CompactWorld key={world.id} world={world} index={index} selected={focus === world.id} onFocus={onFocus} reducedMotion={reducedMotion} labelPortal={labelPortal}/>)}
+  </>;
+}
+
 function Scene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, small, destination, sunLabel, labelPortal }: SceneProps) {
   const group=useRef<Group>(null);
   const objects=useRef(new Map<string,Group>());
@@ -247,6 +329,9 @@ function Scene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, smal
 }
 
 export default function UniverseScene(props: SceneProps) {
+  if (props.small) return <Canvas style={{ touchAction: 'pan-y pinch-zoom' }} camera={{ position: [0,-.22,10], fov: 42, near: .1, far: 260 }} dpr={[1,1.2]} frameloop={props.reducedMotion?'demand':'always'} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }} fallback={<div className="scene-loading"><span>Explore with the universe map</span></div>}>
+    <CompactScene {...props}/>
+  </Canvas>;
   const aspect = typeof window === 'undefined' ? 1.5 : window.innerWidth / Math.max(window.innerHeight,1);
   const distance = Math.max(14.8,(props.small ? 18 : 16.5)/(2*Math.tan(42*Math.PI/360)*aspect));
   return <Canvas onPointerMissed={() => props.onFocus(null)} camera={{ position: [0,.1,distance], fov: 42, near: .1, far: 260 }} dpr={props.small?[1,1.35]:[1,1.75]} frameloop={props.reducedMotion?'demand':'always'} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }} fallback={<div className="scene-loading"><span>Explore with the universe map</span></div>}>

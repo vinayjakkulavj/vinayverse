@@ -1,3 +1,5 @@
+import { professionalResume } from './resume';
+
 export type WorldId = 'professional' | 'know-me' | 'pandora';
 
 export type Topic = {
@@ -26,9 +28,9 @@ export const worlds: World[] = [
     id: 'professional',
     slug: 'professional',
     title: 'Professional',
-    subtitle: 'Systems · impact · engineering',
+    subtitle: 'Experience · Skills · Achievements',
     color: '#7aaee8',
-    topics: ['lineage', 'automation', 'systems', 'journey'],
+    topics: ['experience', 'skills', 'achievements'],
   },
   {
     id: 'know-me',
@@ -53,79 +55,41 @@ export const topics: Topic[] = [
     slug: 'professional',
     title: 'Professional',
     world: 'professional',
-    eyebrow: 'Professional world',
+    eyebrow: 'Professional Summary',
     kind: 'overview',
-    description: 'I work on the systems behind the data: the pipelines, platforms and operational details that make useful information dependable.',
-    quote: 'The universe can impress people. The work has to convince them.',
-    sections: [
-      { title: 'What I focus on', body: 'My work spans enterprise data platforms, ETL and ELT, migrations, automation, performance and production reliability. I like understanding how the pieces connect and where the effort goes.' },
-      { title: 'How I think', body: 'When I run into the same manual problem repeatedly, I start looking for the pattern. If it costs me time, there is a good chance someone else is dealing with it too.' },
-      { title: 'What matters', body: 'I care about useful engineering: less unnecessary effort, clearer information and systems that remain practical after the first demo.' },
-      { title: 'Follow the work', body: 'The four satellites trace a few parts of that story.', items: ['Lineage Intelligence — making relationships easier to discover', 'Automation That Saved Hours — reducing repeated incident work', 'Systems I Improved — performance, reliability and migration', 'Engineering Journey — the tools and responsibilities behind it'] },
-    ],
+    description: professionalResume.summary,
+    quote: '',
+    sections: [],
   },
   {
-    slug: 'lineage',
-    title: 'Lineage Intelligence',
+    slug: 'experience',
+    title: 'Experience',
     world: 'professional',
-    eyebrow: 'Professional · Case study',
+    eyebrow: 'Employment History',
     kind: 'moon',
-    status: 'Built',
-    description: 'A job and data lineage utility people used, and an idea whose next version I still find myself thinking about.',
-    quote: 'Some ideas stop being projects in your head. They become the things you keep thinking about.',
-    sections: [
-      { title: 'The problem', body: 'Understanding the relationships between jobs and data flows depended on manual knowledge and context. Finding an answer meant knowing where to look or who to ask.' },
-      { title: 'The observation', body: 'This felt bigger than one team. When relationships are difficult to discover, people end up repeating the same investigation and carrying the same context in their heads.' },
-      { title: 'What I built', body: 'I created a lineage oriented utility that people could use to explore those relationships. It turned part of that knowledge into something more discoverable.' },
-      { title: 'What happened next', body: 'People used it. I still believe continued development, stronger promotion and clear ownership could have helped it become a broader internal product.' },
-      { title: 'Why it stays with me', body: 'The working utility answered an immediate need. The larger possibility was a system that could make lineage easier for more people to understand. That possibility is what keeps the idea alive.' },
-    ],
+    description: '',
+    quote: '',
+    sections: [],
   },
   {
-    slug: 'automation',
-    title: 'Automation That Saved Hours',
+    slug: 'skills',
+    title: 'Skills',
     world: 'professional',
-    eyebrow: 'Professional · Case study',
+    eyebrow: 'Technical Skills',
     kind: 'moon',
-    status: 'Built',
-    description: 'Recurring user incidents led to a simple question: why are we solving the same thing manually again?',
-    quote: 'Manual repetition almost always looks like an invitation to redesign the process.',
-    sections: [
-      { title: 'The trigger', body: 'Recurring incidents consumed team time through repeated analysis and resolution steps. The work was familiar enough to make its repeated effort stand out.' },
-      { title: 'The idea', body: 'I wanted to capture the reasoning and automate the portions that did not need a human decision. The useful boundary was the incident pattern we could recognize and resolve consistently.' },
-      { title: 'The utility', body: 'I built a tool that could analyze and automatically resolve selected incident patterns. It gave the repeatable parts of the work a repeatable solution.' },
-      { title: 'The outcome', body: 'The utility saved hours of manual effort for the team. It also reinforced an instinct I bring to operational work: repeated effort deserves a closer look.' },
-    ],
+    description: '',
+    quote: '',
+    sections: [],
   },
   {
-    slug: 'systems',
-    title: 'Systems I Improved',
+    slug: 'achievements',
+    title: 'Achievements',
     world: 'professional',
-    eyebrow: 'Professional · Engineering practice',
+    eyebrow: 'Professional Achievements',
     kind: 'moon',
-    description: 'Making an existing system faster, clearer, safer or easier to operate is some of the engineering work I find most interesting.',
-    quote: 'Improvement is still creation.',
-    sections: [
-      { title: 'Performance', body: 'Batch optimization means looking at where processing time goes, finding bottlenecks and removing work that does not need to happen.' },
-      { title: 'Modernization', body: 'I have worked on moving legacy data workloads toward modern platforms and patterns. The interesting part is understanding what the existing system does before deciding how it should change.' },
-      { title: 'Reliability', body: 'Production behavior, supportability and repeatable operations matter alongside delivery. A system should be understandable when someone has to keep it running.' },
-      { title: 'Migration', body: 'Large data movement and platform transitions require validation and controlled cutovers. I approach migration as a change to the working system, with its downstream processing and operational context in view.' },
-    ],
-  },
-  {
-    slug: 'journey',
-    title: 'Engineering Journey',
-    world: 'professional',
-    eyebrow: 'Professional · The path',
-    kind: 'moon',
-    description: 'Enterprise data, platform transitions, production systems and the instinct to make repetitive work disappear.',
-    quote: 'The tools changed. The instinct to improve the system did not.',
-    sections: [
-      { title: 'The foundations', body: 'SQL, Python and PySpark sit at the center of my data engineering work. They are different ways to understand, transform and move data.' },
-      { title: 'The platforms', body: 'My experience includes enterprise data warehouses and distributed data platforms.', items: ['Snowflake', 'Teradata', 'Databricks', 'Hadoop'] },
-      { title: 'The pipelines', body: 'ETL and ELT, Informatica, orchestration, migrations and downstream processing connect the platforms to the work they need to do.' },
-      { title: 'Beyond delivery', body: 'Mentoring, incident support, stakeholder coordination and internal utilities are also part of that journey. Engineering includes the people who build, use and operate the system.' },
-    ],
+    description: '',
+    quote: '',
+    sections: [],
   },
   {
     slug: 'know-me',
@@ -284,34 +248,6 @@ export const topics: Topic[] = [
     ],
   },
   {
-    slug: 'engineering-stack',
-    title: 'The Engineering Stack',
-    world: 'professional',
-    eyebrow: 'Hidden constellation · Tools of the work',
-    kind: 'constellation',
-    description: 'A few of the languages, platforms and pipeline tools behind my engineering work.',
-    quote: 'A tool becomes interesting when it helps make a system better.',
-    sections: [
-      { title: 'Languages and processing', body: 'SQL, Python and PySpark are core parts of how I work with data.', items: ['SQL', 'Python', 'PySpark'] },
-      { title: 'Data platforms', body: 'My work has included enterprise warehouse and distributed processing environments.', items: ['Snowflake', 'Teradata', 'Databricks', 'Hadoop'] },
-      { title: 'Between the platforms', body: 'ETL and ELT, Informatica, orchestration and downstream processing are where the pieces become a working flow.' },
-    ],
-  },
-  {
-    slug: 'impact',
-    title: 'What Impact Looks Like',
-    world: 'professional',
-    eyebrow: 'Hidden constellation · Useful change',
-    kind: 'constellation',
-    description: 'Hours of manual effort saved, relationships made easier to discover and existing systems improved.',
-    quote: 'Useful work changes the experience of the people who depend on it.',
-    sections: [
-      { title: 'Less repeated effort', body: 'The incident automation utility saved hours of manual work for the team by handling selected recurring incident patterns.' },
-      { title: 'More discoverable context', body: 'The lineage utility gave people a way to explore job and data relationships that had depended on manual knowledge.' },
-      { title: 'A better working system', body: 'Performance, modernization, reliability and migration all belong in that picture. I care about whether a system becomes clearer and easier to work with.' },
-    ],
-  },
-  {
     slug: 'soundtrack',
     title: 'My Quiet Soundtrack',
     world: 'know-me',
@@ -385,8 +321,19 @@ export const topics: Topic[] = [
   },
 ];
 
+// Keep previously shared Professional URLs on the resume content.
+export const topicAliases: Record<string, string> = {
+  lineage: 'experience',
+  systems: 'experience',
+  journey: 'experience',
+  automation: 'achievements',
+  impact: 'achievements',
+  'engineering-stack': 'skills',
+};
+
 export function getTopic(slug: string): Topic | undefined {
-  return topics.find((topic) => topic.slug === slug);
+  const canonicalSlug = topicAliases[slug] || slug;
+  return topics.find((topic) => topic.slug === canonicalSlug);
 }
 
 export function getWorld(id: WorldId): World {

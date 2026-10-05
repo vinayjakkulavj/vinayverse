@@ -3,10 +3,11 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
+import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
 import { worlds, topics, getWorld, getTopic, type WorldId } from '@/data/portfolio';
 import { useExperience } from './ExperienceProvider';
 import EntryGate from './EntryGate';
+import MobileUniversePanel from './MobileUniversePanel';
 
 const UniverseScene = dynamic(() => import('./UniverseScene'), { ssr: false, loading: () => <div className="scene-loading"><span>Finding your orbit</span></div> });
 
@@ -72,6 +73,8 @@ export default function UniverseExperience() {
   const transitionLock = useRef(false);
   const mapButton = useRef<HTMLButtonElement>(null);
 
+  useLayoutEffect(() => { restartOpening(); }, [restartOpening]);
+
   useEffect(() => {
     const query = window.matchMedia('(max-width: 700px)');
     const update = () => setSmall(query.matches);
@@ -103,9 +106,9 @@ export default function UniverseExperience() {
       }
       frame = requestAnimationFrame(decay);
     };
-    if (entered && !reducedMotion) frame = requestAnimationFrame(decay);
+    if (entered && !reducedMotion && !small) frame = requestAnimationFrame(decay);
     return () => cancelAnimationFrame(frame);
-  }, [entered, reducedMotion]);
+  }, [entered, reducedMotion, small]);
 
   const focusWorld = useCallback((world: WorldId | null) => { if (!transitionLock.current && !pointer.current?.moved && !suppressClick.current) setFocus(world); }, []);
   const openTopic = useCallback((slug: string) => {
@@ -131,13 +134,26 @@ export default function UniverseExperience() {
   const closeAtlas = useCallback(() => setAtlas(false), []);
   const revealOpening = useCallback((progress: number) => main.current?.style.setProperty('--intro-reveal', String(progress)), []);
   const opening = !ready || !entered;
+  useEffect(() => {
+    if (!opening) return;
+    transitionLock.current = false;
+    setEntering(null);
+    setAtlas(false);
+    const captured = pointer.current;
+    if (captured?.capture.hasPointerCapture(captured.id)) captured.capture.releasePointerCapture(captured.id);
+    pointer.current = null;
+    suppressClick.current = false;
+    setDragging(false);
+    inertia.current = { x: 0, y: 0 };
+    main.current?.style.setProperty('--intro-reveal', '0');
+  }, [opening]);
   const finishOpening = () => {
     enter();
     if (searchParams.get('intro') === '1') router.replace('/', { scroll: false });
     setTimeout(() => heading.current?.focus({ preventScroll: true }), 0);
   };
   const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (opening || entering || !(event.target instanceof HTMLCanvasElement) || event.button !== 0) return;
+    if (small || opening || entering || !(event.target instanceof HTMLCanvasElement) || event.button !== 0) return;
     pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY, distance: 0, moved: false, capture: event.target };
     suppressClick.current = false;
     event.target.setPointerCapture(event.pointerId);
@@ -165,7 +181,7 @@ export default function UniverseExperience() {
   };
   const world = focus ? getWorld(focus) : null;
   useEffect(() => {
-    if (!focus || opening) return;
+    if (!focus || opening || small) return;
     const dismissOutside = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Element) || target instanceof HTMLCanvasElement) return;
@@ -174,16 +190,17 @@ export default function UniverseExperience() {
     };
     document.addEventListener('click', dismissOutside);
     return () => document.removeEventListener('click', dismissOutside);
-  }, [focus, opening, focusWorld]);
+  }, [focus, opening, small, focusWorld]);
 
   return <>
-    <main ref={main} id="main-content" className="universe-shell" inert={opening} data-opening={opening} data-entering={!!entering}>
-      <div className="universe-heading"><h1 className="eyebrow" ref={heading} tabIndex={-1}>Welcome to my universe</h1><p>{world ? world.subtitle : 'Engineer. Builder. Curious human.'}</p></div>
+    <main ref={main} id="main-content" className={`universe-shell${small ? ' compact-universe' : ''}`} inert={opening} data-opening={opening} data-entering={!!entering}>
+      <div className="universe-heading"><h1 className="eyebrow" ref={heading} tabIndex={-1}>Welcome to my universe</h1><p>{!small && world ? world.subtitle : 'Engineer. Builder. Curious human.'}</p></div>
       <div ref={setStageNode} className={`universe-stage ${dragging ? 'is-dragging' : ''}`} onPointerDown={startDrag} onPointerMove={drag} onPointerUp={stopDrag} onPointerCancel={stopDrag} onLostPointerCapture={() => { pointer.current = null; setDragging(false); }}>
         {labelPortal && <SceneBoundary onError={() => setSceneFailed(true)}><UniverseScene focus={focus} onFocus={focusWorld} onEnter={openTopic} rotation={rotation} reducedMotion={reducedMotion} visited={visited} small={small} destination={entering} sunLabel={sunLabel} labelPortal={labelPortal}/></SceneBoundary>}
         <div ref={sunLabel} className="sun-position" data-gravity><div className="sun-label"><strong>VINAY</strong><span>Engineer · Builder · Curious Human</span>{visited.length > 7 && <em>You know a little more now.</em>}</div></div>
       </div>
-      {world && !entering && <section className="focus-panel" aria-label={`${world.title} navigation`} style={{ '--accent': world.color } as React.CSSProperties}>
+      {small ? <MobileUniversePanel focus={focus} onFocus={focusWorld} onEnter={openTopic} onOpenAtlas={() => setAtlas(true)} sceneFailed={sceneFailed} entering={!!entering}/> : <>
+      {world && !entering && <section className="focus-panel" data-world={world.id} aria-label={`${world.title} navigation`} style={{ '--accent': world.color } as React.CSSProperties}>
         <div className="focus-panel-top"><span className="eyebrow">In focus</span><button aria-label="Return to full universe" onClick={() => setFocus(null)}>×</button></div>
         <h2 style={{ color: world.color }}>{world.title}</h2><p>{getTopic(world.slug)?.description}</p>
         <nav className="focus-topics" aria-label={`${world.title} topics`}>{world.topics.map((slug, index) => <Link key={slug} href={`/explore/${slug}/`}><i>{String(index + 1).padStart(2, '0')}</i>{getTopic(slug)?.title}</Link>)}</nav>
@@ -191,6 +208,7 @@ export default function UniverseExperience() {
       </section>}
       <nav className="universe-toolbar" aria-label="Focus a world">{worlds.map((item) => <button key={item.id} aria-pressed={focus === item.id} onClick={() => focusWorld(focus === item.id ? null : item.id)}>{item.title}</button>)}</nav>
       <div className="universe-footer"><p className="universe-instruction">{small ? 'Swipe to rotate' : 'Drag space to rotate'}<span>·</span>{small ? 'Tap a world to explore' : 'Hover a world to discover'}</p><button ref={mapButton} className="atlas-button" onClick={() => setAtlas(true)}>{sceneFailed ? 'Explore the universe map' : 'Universe map'}</button></div>
+      </>}
     </main>
     {opening && <EntryGate reducedMotion={reducedMotion} onEnter={finishOpening} onProgress={revealOpening}/>}
     {atlas && <UniverseAtlas onClose={closeAtlas}/>}

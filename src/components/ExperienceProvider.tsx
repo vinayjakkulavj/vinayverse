@@ -25,30 +25,32 @@ export function ExperienceProvider({ children }: { children: ReactNode }) {
     const update = () => setSystemReduced(query.matches);
     update();
     query.addEventListener('change', update);
+    const resetRestoredVisit = (event: PageTransitionEvent) => {
+      if (event.persisted) setEntered(false);
+    };
+    window.addEventListener('pageshow', resetRestoredVisit);
     try {
       const stored = JSON.parse(localStorage.getItem('douknowme-discovered') || '[]');
       if (Array.isArray(stored)) setVisited(stored.filter((value) => typeof value === 'string'));
-      setEntered(sessionStorage.getItem('douknowme-entered') === 'yes' && new URLSearchParams(window.location.search).get('intro') !== '1');
     } catch { /* Storage is optional. */ }
     setReady(true);
-    return () => query.removeEventListener('change', update);
+    return () => {
+      query.removeEventListener('change', update);
+      window.removeEventListener('pageshow', resetRestoredVisit);
+    };
   }, []);
 
-  const enter = useCallback(() => {
-    setEntered(true);
-    try { sessionStorage.setItem('douknowme-entered', 'yes'); } catch { /* Optional session storage. */ }
-  }, []);
+  const enter = useCallback(() => setEntered(true), []);
   const restartOpening = useCallback(() => setEntered(false), []);
 
   const markVisited = useCallback((slug: string) => {
-    enter();
     setVisited((previous) => {
       if (previous.includes(slug)) return previous;
       const next = [...previous, slug];
       try { localStorage.setItem('douknowme-discovered', JSON.stringify(next)); } catch { /* Optional storage. */ }
       return next;
     });
-  }, [enter]);
+  }, []);
 
   return <Context.Provider value={{
     reducedMotion: systemReduced, visited, entered, ready, enter, restartOpening, markVisited,

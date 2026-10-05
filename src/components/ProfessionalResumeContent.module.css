@@ -1,0 +1,178 @@
+.resumeContent {
+  min-width: 0;
+  margin-top: 17px;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, .12));
+}
+
+.resumeContent[data-overview='true'] {
+  margin-top: 88px;
+}
+
+.resumeSection {
+  display: grid;
+  grid-template-columns: 245px minmax(0, 1fr);
+  gap: 64px;
+  padding: 54px 0 60px;
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, .12));
+  scroll-margin-top: 110px;
+}
+
+.resumeContent[data-overview='false'] .resumeSection {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.sectionHeading {
+  min-width: 0;
+  margin: 0;
+  color: var(--text, #f3f5f7);
+  font-size: clamp(1.7rem, 3vw, 2.5rem);
+  font-weight: 450;
+  line-height: 1.22;
+  letter-spacing: -.035em;
+}
+
+.sectionContent {
+  min-width: 0;
+  max-width: 760px;
+}
+
+.job + .job {
+  margin-top: 34px;
+  padding-top: 30px;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, .12));
+}
+
+.jobHeader h3 {
+  margin: 0;
+  color: #e2ebf6;
+  font-size: 1.1875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -.015em;
+  overflow-wrap: anywhere;
+}
+
+.period {
+  margin: 8px 0 0;
+  color: var(--muted, #8d98a6);
+  font-size: .8125rem;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.items {
+  margin: 20px 0 0;
+  padding-left: 20px;
+  color: #aab5c2;
+  font-size: 1rem;
+  line-height: 1.85;
+}
+
+.items li {
+  padding-left: 3px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.items li + li {
+  margin-top: 13px;
+}
+
+.items li::marker {
+  color: var(--world-accent, #7aaee8);
+  font-size: .75em;
+}
+
+.skills {
+  margin: 0;
+}
+
+.skillRow {
+  display: grid;
+  grid-template-columns: minmax(140px, .36fr) minmax(0, 1fr);
+  gap: 20px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, .12));
+}
+
+.skillRow:first-child {
+  padding-top: 0;
+}
+
+.skillRow:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.skillRow dt {
+  color: #d6e1ed;
+  font-size: .875rem;
+  font-weight: 500;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.skillRow dd {
+  min-width: 0;
+  margin: 0;
+  color: #aab5c2;
+  font-size: 1rem;
+  line-height: 1.8;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.achievements {
+  margin-top: 0;
+}
+
+@media (max-width: 1000px) {
+  .resumeSection {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 25px;
+  }
+
+  .sectionContent {
+    max-width: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .resumeContent {
+    margin-top: 0;
+  }
+
+  .resumeContent[data-overview='true'] {
+    margin-top: 58px;
+  }
+
+  .resumeSection {
+    gap: 23px;
+    padding: 34px 0 40px;
+  }
+
+  .sectionHeading {
+    font-size: 1.875rem;
+  }
+
+  .jobHeader h3 {
+    font-size: 1.125rem;
+  }
+
+  .job + .job {
+    margin-top: 29px;
+    padding-top: 25px;
+  }
+
+  .items {
+    line-height: 1.8;
+  }
+}
+
+@media (max-width: 600px) {
+  .skillRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+}

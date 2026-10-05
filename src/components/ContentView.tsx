@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { getWorld, type Topic } from "@/data/portfolio";
+import { professionalResume } from "@/data/resume";
+import ProfessionalResumeContent, { type ProfessionalResumeSection } from "./ProfessionalResumeContent";
 import styles from "./ContentView.module.css";
 
 type ContentViewProps = { topic: Topic; related: Topic[] };
@@ -23,8 +25,8 @@ function TopicLinks({ topics }: { topics: Topic[] }) {
             <div className={styles.topicCopy}>
               <span className={styles.topicEyebrow}>{item.eyebrow}</span>
               <h3>{item.title}</h3>
-              <p>{item.description}</p>
-              {item.status && <span className={styles.cardStatus}>{item.status}</span>}
+              {item.description && <p>{item.description}</p>}
+              {item.world !== "professional" && item.status && <span className={styles.cardStatus}>{item.status}</span>}
             </div>
             <Arrow />
           </Link>
@@ -37,6 +39,9 @@ function TopicLinks({ topics }: { topics: Topic[] }) {
 export default function ContentView({ topic, related }: ContentViewProps) {
   const world = getWorld(topic.world);
   const isOverview = topic.kind === "overview";
+  const isProfessional = topic.world === "professional";
+  const professionalSection: ProfessionalResumeSection | undefined = topic.slug === "experience" || topic.slug === "skills" || topic.slug === "achievements" ? topic.slug : undefined;
+  const description = isProfessional ? (isOverview ? professionalResume.summary : "") : topic.description;
   const chapters = topic.sections;
   const nearbyTopics = related.filter((item) => item.slug !== topic.slug);
   const accentStyle = { "--world-accent": world.color } as CSSProperties;
@@ -56,19 +61,19 @@ export default function ContentView({ topic, related }: ContentViewProps) {
             <div className={styles.eyebrowRow}>
               <span className={styles.worldDot} aria-hidden="true" />
               <p className={styles.eyebrow}>{topic.eyebrow}</p>
-              {topic.status && <span className={styles.status}>{topic.status}</span>}
+              {!isProfessional && topic.status && <span className={styles.status}>{topic.status}</span>}
             </div>
             <h1>{topic.title}</h1>
-            <p className={styles.description}>{topic.description}</p>
+            {description && <p className={styles.description}>{description}</p>}
           </div>
           {isOverview ? (
             <div className={styles.orbitalDetail} aria-hidden="true">
               <span className={styles.orbitalRing} /><span className={styles.orbitalCore} />
               <span className={styles.orbitalMoonOne} /><span className={styles.orbitalMoonTwo} />
-              <span className={styles.orbitalMoonThree} /><span className={styles.orbitalMoonFour} />
+              <span className={styles.orbitalMoonThree} />{world.topics.length > 3 && <span className={styles.orbitalMoonFour} />}
               <span className={styles.orbitalLabel}>{world.title}</span>
             </div>
-          ) : chapters.length > 0 ? (
+          ) : !isProfessional && chapters.length > 0 ? (
             <nav className={styles.chapterNav} aria-label="On this page">
               <p className={styles.smallLabel}>On this page</p>
               <ol>
@@ -92,7 +97,9 @@ export default function ContentView({ topic, related }: ContentViewProps) {
           </section>
         )}
 
-        {chapters.length > 0 && (
+        {isProfessional && <ProfessionalResumeContent section={professionalSection} />}
+
+        {!isProfessional && chapters.length > 0 && (
           <div className={styles.story}>
             {chapters.map((section, index) => (
               <section className={styles.chapter} id={`chapter-${index + 1}`} aria-labelledby={`chapter-heading-${index + 1}`} key={`${section.title}-${index}`}>
@@ -102,7 +109,7 @@ export default function ContentView({ topic, related }: ContentViewProps) {
                 </div>
                 <div className={styles.chapterCopy}>
                   <h2 id={`chapter-heading-${index + 1}`}>{section.title}</h2>
-                  {section.body.split(/\n\s*\n/).map((paragraph, paragraphIndex) => <p key={paragraphIndex}>{paragraph}</p>)}
+                  {section.body && section.body.split(/\n\s*\n/).map((paragraph, paragraphIndex) => <p key={paragraphIndex}>{paragraph}</p>)}
                   {section.items && section.items.length > 0 && (
                     <ul className={styles.chapterItems}>{section.items.map((item) => <li key={item}>{item}</li>)}</ul>
                   )}
@@ -112,7 +119,7 @@ export default function ContentView({ topic, related }: ContentViewProps) {
           </div>
         )}
 
-        {topic.quote && (
+        {!isProfessional && topic.quote && (
           <figure className={styles.quote}>
             <span className={styles.quoteMark} aria-hidden="true">“</span>
             <blockquote><p>{topic.quote}</p></blockquote>

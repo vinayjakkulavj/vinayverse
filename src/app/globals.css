@@ -69,6 +69,7 @@ html[data-motion='reduced'] .universe-shell[data-opening='true'] .universe-stage
 .universe-toolbar button:hover { color: #f4f7fc; }
 .universe-toolbar button[aria-pressed='true'] { color: #e2ecf9; background: #3343564d; }
 .focus-panel { position: absolute; left: 4vw; top: 215px; width: 245px; z-index: 10; background: linear-gradient(90deg,#05070ae6, #05070a00); animation: reveal-panel .18s ease-out both; }
+.focus-panel[data-world='professional'] { max-height: max(160px, calc(100dvh - 290px)); overflow-y: auto; scrollbar-width: thin; padding-right: 10px; }
 @keyframes reveal-panel { from { opacity: .6; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .focus-panel-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .focus-panel-top .eyebrow { font-size: 10px; }
@@ -170,3 +171,20 @@ html[data-motion='reduced'] .universe-shell[data-opening='true'] .universe-stage
 html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-motion='reduced'] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 .universe-toolbar button, .comms-link { min-height: 44px; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+@media (max-width: 700px) {
+  body:has(.compact-universe) .site-header { background: #03050a; }
+  .compact-universe { height: auto; min-height: 100dvh; overflow: visible; overflow-x: clip; padding: 88px 0 max(20px, env(safe-area-inset-bottom)); }
+  .compact-universe[data-opening='true'] { height: 100dvh; overflow: hidden; }
+  .compact-universe::after { display: none; }
+  .compact-universe .universe-heading { position: relative; top: auto; left: auto; padding: 0 22px; }
+  .compact-universe .universe-heading h1 { margin: 0; font-size: 10px; }
+  .compact-universe .universe-heading p { display: block; max-width: none; font-size: 13px; margin-top: 7px; }
+  .compact-universe .universe-stage { position: relative; inset: auto; width: 100%; height: clamp(300px, 78vw, 380px); margin-top: 8px; overflow: hidden; isolation: isolate; touch-action: pan-y pinch-zoom; cursor: auto; }
+  .compact-universe .universe-stage canvas { touch-action: pan-y pinch-zoom; }
+  .compact-universe .sun-label strong { font-size: 14px; font-weight: 450; letter-spacing: .08em; padding-left: .08em; }
+  .compact-universe .sun-label span, .compact-universe .sun-label em { display: none; }
+  .compact-universe .compact-planet-label { min-width: 104px; min-height: 44px; padding: 10px 4px; border-radius: 8px; }
+  .compact-universe .compact-planet-label strong { font-size: 12px; font-weight: 450; letter-spacing: -.01em; }
+  .compact-universe .compact-planet-label[data-selected='true'] strong { color: #fff; }
+}

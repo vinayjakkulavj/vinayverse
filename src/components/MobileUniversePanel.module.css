@@ -1,0 +1,228 @@
+.panel {
+  position: relative;
+  z-index: 5;
+  padding: 0 18px calc(20px + env(safe-area-inset-bottom));
+  background: #03050a;
+  color: var(--text);
+}
+
+.selector {
+  position: sticky;
+  top: 84px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px 0 14px;
+  background: #03050a;
+}
+
+.worldButton {
+  min-width: 0;
+  min-height: 52px;
+  padding: 9px 7px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0b1017;
+  color: #a6b3c4;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  transition: color 200ms ease, border-color 200ms ease, background-color 200ms ease;
+}
+
+.worldButton[aria-pressed='true'] {
+  border-color: var(--button-accent);
+  color: var(--button-accent);
+  background: #121c2b;
+}
+
+.worldButton:active {
+  transform: translateY(1px);
+}
+
+.details {
+  padding: 17px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  animation: arrive 200ms ease-out both;
+}
+
+.detailsHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.detailsHeading > div {
+  min-width: 0;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.detailsHeading h2 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -.035em;
+}
+
+.expandButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #a6b3c4;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.chevron {
+  display: inline-block;
+  font-size: 17px;
+  line-height: 1;
+  transition: transform 200ms ease;
+}
+
+.chevron[data-expanded='true'] {
+  transform: rotate(180deg);
+}
+
+.topicBody {
+  animation: arrive 200ms ease-out both;
+}
+
+.topicBody[hidden] {
+  display: none;
+}
+
+.description {
+  margin: 14px 0 16px;
+  color: #9eacbf;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.topics {
+  display: grid;
+}
+
+.topics a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  color: #d5dfec;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.topicNumber {
+  flex-shrink: 0;
+  color: #66788f;
+  font-size: 10px;
+}
+
+.topicArrow {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--world-accent);
+}
+
+.enterButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  padding: 11px 14px;
+  border: 1px solid var(--world-accent);
+  border-radius: 10px;
+  background: #131e2b;
+  color: var(--world-accent);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.browsePrompt {
+  padding: 19px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.browsePrompt h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 450;
+  letter-spacing: -.03em;
+}
+
+.browsePrompt p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.footer {
+  padding-top: 13px;
+}
+
+.mapButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: #b2c3d9;
+  font-size: 13px;
+}
+
+.footer p {
+  margin: 0;
+  color: #718198;
+  font-size: 11px;
+}
+
+@keyframes arrive {
+  from { opacity: .7; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 350px) {
+  .panel { padding-inline: 14px; }
+  .worldButton { padding-inline: 5px; font-size: 11px; }
+  .details { padding-inline: 14px; }
+  .detailsHeading h2 { font-size: 20px; }
+  .detailsHeading { gap: 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .details, .topicBody { animation: none; }
+  .worldButton, .chevron { transition: none; }
+}

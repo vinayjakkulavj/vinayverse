@@ -231,7 +231,7 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress }: EntryG
       <div className={styles.entryFlight}>
         <div className={styles.entryCopy}>
           <div className={styles.entryEyebrow}><span /> A PERSONAL UNIVERSE BY VINAY</div>
-          <h1 id="entry-title" className={styles.entryTitle}>DO U<br className={styles.mobileBreak} /> KNOW ME<span>?</span></h1>
+          <h1 id="entry-title" className={styles.entryTitle}>DO YOU<br className={styles.mobileBreak} /> KNOW ME<span>?</span></h1>
           <p id="entry-description" className={styles.entryDescription}>There is more than one answer.</p>
           <div className={styles.entryCoordinates} aria-hidden="true">ENGINEER. BUILDER. CURIOUS HUMAN.</div>
         </div>

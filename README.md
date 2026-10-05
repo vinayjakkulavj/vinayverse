@@ -36,21 +36,21 @@ The original dependency-free interaction prototype is preserved in the root `ind
 
 ## Content and routes
 
-Edit `src/data/portfolio.ts` to update the worlds and content. The `topics` array is the source for titles, descriptions, quotations, sections, optional lists, and project status. The `worlds` array defines each world's title, accent color, and four satellite topics.
+Edit `src/data/portfolio.ts` to update the worlds and content. The `topics` array is the source for titles, descriptions, quotations, sections, optional lists, and project status. The `worlds` array defines each world's title, accent color, and satellite topics. Professional reads its résumé content from `src/data/resume.ts`.
 
-There are **22 static topic routes** at `/explore/<slug>/`: three world overviews, twelve satellites, and seven constellations. The home page is `/`.
+There are **19 canonical topics** at `/explore/<slug>/`: three world overviews, eleven satellites, and five constellations. Six older Professional URLs remain available as aliases, making 25 exported topic routes. The home page is `/`.
 
 | World | Overview slug | Satellite slugs |
 | --- | --- | --- |
-| Professional | `professional` | `lineage`, `automation`, `systems`, `journey` |
+| Professional | `professional` | `experience`, `skills`, `achievements` |
 | Know Me | `know-me` | `beyond`, `wonder`, `peace`, `alternate` |
 | Project Pandora | `project-pandora` | `tools`, `ideas`, `experiments`, `stories` |
 
-The constellation slugs are `engineering-stack`, `impact`, `soundtrack`, `on-the-road`, `small-things`, `science`, and `what-if`.
+The constellation slugs are `soundtrack`, `on-the-road`, `small-things`, `science`, and `what-if`. The former Professional destinations (`lineage`, `systems`, `journey`, `automation`, `impact`, and `engineering-stack`) resolve to the relevant résumé section, with canonical metadata pointing to the new URL.
 
 `src/app/explore/[slug]/page.tsx` generates these routes from `topics` during the build. Keep each slug unique. When adding a satellite, include its slug in the appropriate world's `topics` list. Rebuild the static export after any content change.
 
-Quantified impact metrics, employer names and dates, a detailed career timeline, project URLs and visual evidence, and a downloadable résumé require actual material from Vinay. Those details have not been invented. Add verified information to the content source; put supplied assets in `public/` and render or link them through `ContentView.tsx` as needed.
+Professional reproduces the Professional Summary, Employment History, Technical Skills, and Professional Achievements from `Vinay_Jakkula_Databricks_Oct26.pdf`. PDF line wrapping is normalized; claims and dates are retained. The overview places the summary first, then “In this world,” followed by Experience, Skills, and Achievements. Each satellite also opens its individual section. No additional Professional narratives or quotes are included.
 
 ## Contacts and site URL
 
@@ -72,11 +72,11 @@ Set the same public variable in the hosting provider's build environment. It sup
 ## Experience preferences and fallback navigation
 
 - **Motion:** animation follows the operating system's reduced-motion preference. Reduced motion simplifies the opening and camera transitions and uses the native cursor.
-- **Discovery:** visited topics are stored in the browser's `localStorage` under `douknowme-discovered`. They influence the discovery trail and the central sphere's appearance. Opening completion uses `sessionStorage` under `douknowme-entered`. Storage failures do not prevent exploration.
+- **Discovery:** visited topics are stored in the browser's `localStorage` under `douknowme-discovered`. They influence the discovery trail and the central sphere's appearance. Opening completion is held only in memory; refreshes and home visits show the opening again. Storage failures do not prevent exploration.
 - **Planet focus:** mouse hover on a planet surface opens its details. Planet captions retain click and keyboard navigation without opening details on mouse hover. Clicking empty space or other noninteractive screen areas returns to the full universe; dragging preserves focus.
 - **Navigation:** content routes open immediately with no timed navigation hold. Static topics are prefetched during idle time, while short visible arrival transitions and time-based camera damping keep movement responsive.
-- **Mobile:** swipe to rotate, tap a world, or use the world navigation buttons and topic links. The spacecraft cursor is limited to fine pointers.
-- **Opening:** dragging previews the live scene through a limited aperture; a successful release completes the reveal over 840 ms. Short pulls spring back, and reduced motion uses a brief fade.
+- **Mobile:** at widths of 700px or below, a compact universe uses fixed planet positions and a sticky world selector. Details flow below the scene, so another world remains selectable while details are open. Wider screens retain the rotating universe. The spacecraft cursor is limited to fine pointers.
+- **Opening:** “DO YOU KNOW ME?” appears on every fresh visit, refresh, and return home. Dragging previews the live scene through a limited aperture; a successful release completes the reveal over 840 ms. Short pulls spring back, and reduced motion uses a brief fade.
 - **Replay opening:** open `/?intro=1` to return to the introduction while keeping discovery and preferences. Finishing the introduction returns to `/`.
 - **Universe map:** this keyboard-accessible list offers every topic and remains available if the WebGL scene fails. Static detail pages can also be opened directly by URL. The initial home HTML includes ordinary world and map links before JavaScript loads.
 
@@ -85,11 +85,12 @@ Set the same public variable in the hosting provider's build environment. It sup
 | Location | Responsibility |
 | --- | --- |
 | `src/app/` | Next.js App Router pages, route metadata, sitemap, robots, and error pages. |
-| `src/data/portfolio.ts` and `src/data/site.ts` | Portfolio content, world definitions, identity, contacts, and canonical URL. |
+| `src/data/portfolio.ts`, `src/data/resume.ts`, and `src/data/site.ts` | Portfolio content, supplied résumé content, world definitions, identity, contacts, and canonical URL. |
 | `src/components/UniverseExperience.tsx` | Opening flow, navigation, drag input, world focus, and Universe map. |
 | `src/components/UniverseScene.tsx` and `src/lib/shaders.ts` | React Three Fiber scene, planets, orbits, constellations, trails, and camera behavior. |
 | `src/components/CosmicBackdrop.tsx` and `PlanetImpacts.tsx` | Surrounding stars, decorative constellations, distant meteors, rare planetary impacts, comet tails, and sky parallax. |
-| `src/components/ContentView.tsx` | Topic detail layout and related topic navigation. |
+| `src/components/ContentView.tsx` and `ProfessionalResumeContent.tsx` | Topic detail layout, résumé sections, and related topic navigation. |
+| `src/components/MobileUniversePanel.tsx` | Mobile world selector and details below the compact scene. |
 | `src/components/ExperienceProvider.tsx` and `ExperienceShell.tsx` | System motion preference, discovery state, header, and cursor. |
 | `src/components/EntryGate.tsx`, `StarshipCursor.tsx`, and CSS files | Entry animation, spacecraft pointer, responsive presentation, and motion adaptations. |
 
