@@ -10,6 +10,7 @@ import { useExperience } from './ExperienceProvider';
 import EntryGate from './EntryGate';
 import MobileUniversePanel from './MobileUniversePanel';
 import PlanetFlight from './PlanetFlight';
+import UniverseDesignGuide from './UniverseDesignGuide';
 
 const UniverseScene = dynamic(() => import('./UniverseScene'), { ssr: false, loading: () => <div className="scene-loading"><span>Finding your orbit</span></div> });
 
@@ -59,6 +60,7 @@ export default function UniverseExperience() {
   const [focus, setFocus] = useState<WorldId | null>(() => queryWorld && worlds.some((world) => world.id === queryWorld) ? queryWorld as WorldId : null);
   const lastQueryWorld = useRef(queryWorld);
   const [atlas, setAtlas] = useState(false);
+  const [designGuide, setDesignGuide] = useState(false);
   const [sceneFailed, setSceneFailed] = useState(false);
   const [entering, setEntering] = useState<string | null>(null);
   const [formationId, setFormationId] = useState(0);
@@ -202,6 +204,16 @@ export default function UniverseExperience() {
   }, [ready, entered, router]);
 
   const closeAtlas = useCallback(() => setAtlas(false), []);
+  const openDesignGuide = useCallback(() => { setAtlas(false); setDesignGuide(true); }, []);
+  const closeDesignGuide = useCallback(() => setDesignGuide(false), []);
+  const previewEclipse = useCallback(() => {
+    setDesignGuide(false);
+    setFocus(null);
+    rotation.current = { x: -.19, y: -.12 };
+    inertia.current = { x: 0, y: 0 };
+    window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+    window.dispatchEvent(new Event('vinayverse-preview-eclipse'));
+  }, [reducedMotion]);
   const revealOpening = useCallback((progress: number) => main.current?.style.setProperty('--intro-reveal', String(progress)), []);
   const opening = !ready || !entered;
   // Reset navigation on home activation, including cached returns that skip the intro.
@@ -212,6 +224,7 @@ export default function UniverseExperience() {
     transitionLock.current = false;
     setEntering(null);
     setAtlas(false);
+    setDesignGuide(false);
     const captured = pointer.current;
     if (captured?.capture.hasPointerCapture(captured.id)) captured.capture.releasePointerCapture(captured.id);
     pointer.current = null;
@@ -296,7 +309,7 @@ export default function UniverseExperience() {
         {labelPortal && <SceneBoundary onError={failScene}><UniverseScene focus={focus} onFocus={focusWorld} onEnter={openTopic} rotation={rotation} reducedMotion={reducedMotion} visited={visited} small={small} destination={entering} sunLabel={sunLabel} labelPortal={labelPortal} formationId={formationId} opening={opening} forming={forming} onFormationComplete={finishFormation} flightProgress={flightProgress}/></SceneBoundary>}
         <div ref={sunLabel} className="sun-position" data-gravity><div className="sun-label"><strong>VINAY</strong><span>Engineer · Builder · Curious Human</span>{visited.length > 7 && <em>You know a little more now.</em>}</div></div>
       </div>
-      {small ? <MobileUniversePanel focus={focus} onFocus={focusWorld} onEnter={openTopic} onOpenAtlas={() => setAtlas(true)} sceneFailed={sceneFailed} entering={!!entering}/> : <>
+      {small ? <MobileUniversePanel focus={focus} onFocus={focusWorld} onEnter={openTopic} onOpenAtlas={() => setAtlas(true)} onOpenDesignGuide={openDesignGuide} sceneFailed={sceneFailed} entering={!!entering}/> : <>
       {world && !entering && <section className="focus-panel" data-world={world.id} aria-label={`${world.title} navigation`} style={{ '--accent': world.color } as React.CSSProperties}>
         <div className="focus-panel-top"><span className="eyebrow">In focus</span><button aria-label="Return to full universe" onClick={() => setFocus(null)}>×</button></div>
         <h2 style={{ color: world.color }}>{world.title}</h2><p>{getTopic(world.slug)?.description}</p>
@@ -304,11 +317,12 @@ export default function UniverseExperience() {
         <button className="focus-enter" style={{ background: 'none', borderTop: 0, borderLeft: 0, borderRight: 0, padding: '0 0 5px' }} onClick={() => openTopic(world.slug)}>Enter {world.title}</button>
       </section>}
       <nav className="universe-toolbar" aria-label="Focus a world">{worlds.map((item) => <button key={item.id} aria-pressed={focus === item.id} onClick={() => focusWorld(focus === item.id ? null : item.id)}>{item.title}</button>)}</nav>
-      <div className="universe-footer"><p className="universe-instruction">{small ? 'Swipe to rotate' : 'Drag space to rotate'}<span>·</span>{small ? 'Tap a world to explore' : 'Hover a world to discover'}</p><button ref={mapButton} className="atlas-button" onClick={() => setAtlas(true)}>{sceneFailed ? 'Explore the universe map' : 'Universe map'}</button></div>
+      <div className="universe-footer"><p className="universe-instruction">{small ? 'Swipe to rotate' : 'Drag space to rotate'}<span>·</span>{small ? 'Tap a world to explore' : 'Hover a world to discover'}</p><div className="universe-footer-actions"><button className="atlas-button" onClick={openDesignGuide}>Design insights</button><button ref={mapButton} className="atlas-button" onClick={() => setAtlas(true)}>{sceneFailed ? 'Explore the universe map' : 'Universe map'}</button></div></div>
       </>}
       {entering && !reducedMotion && !sceneFailed && <PlanetFlight color={getWorld(getTopic(entering)?.world ?? 'professional').color} title={getTopic(entering)?.title ?? 'this world'}/>}
     </main>
     {opening && <EntryGate reducedMotion={reducedMotion} onEnter={finishOpening} onProgress={revealOpening} onBeginEnter={beginOpening}/>}
     {atlas && <UniverseAtlas onClose={closeAtlas}/>}
+    {designGuide && <UniverseDesignGuide onClose={closeDesignGuide} onPreviewEclipse={previewEclipse}/>}
   </>;
 }

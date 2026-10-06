@@ -15,7 +15,7 @@ type EntryGateProps = {
 
 const DRAG_DISTANCE = 96;
 const OPEN_THRESHOLD = 0.6;
-const DRAG_REVEAL_LIMIT = 0.44;
+const DRAG_REVEAL_LIMIT = 0.52;
 const REVEAL_DURATION = 0.9;
 const TITLE_LINES = ["DO YOU", "KNOW ME?"];
 
@@ -75,7 +75,7 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
     gate.style.setProperty("--intro-pull", String(revealRef.current.pull));
     gate.style.setProperty("--handle-y", `${revealRef.current.handleY}px`);
     gate.style.setProperty("--aperture-radius", `${radius}px`);
-    gate.style.setProperty("--aperture-inner", `${Math.max(0, radius - 48)}px`);
+    gate.style.setProperty("--aperture-inner", `${Math.max(0, radius - 24)}px`);
     gate.style.setProperty("--portal-scale", String(Math.max(0.01, radius / 64)));
     gate.style.setProperty("--portal-opacity", String(Math.sin(progress * Math.PI) * 0.46));
     gate.toggleAttribute("data-release-ready", revealRef.current.pull >= OPEN_THRESHOLD);

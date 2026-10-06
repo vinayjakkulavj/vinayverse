@@ -10,6 +10,7 @@ type MobileUniversePanelProps = {
   onFocus: (world: WorldId | null) => void;
   onEnter: (slug: string) => void;
   onOpenAtlas: () => void;
+  onOpenDesignGuide: () => void;
   sceneFailed: boolean;
   entering: boolean;
 };
@@ -55,7 +56,7 @@ function WorldDetails({ world, onEnter, entering }: {
   </section>;
 }
 
-export default function MobileUniversePanel({ focus, onFocus, onEnter, onOpenAtlas, sceneFailed, entering }: MobileUniversePanelProps) {
+export default function MobileUniversePanel({ focus, onFocus, onEnter, onOpenAtlas, onOpenDesignGuide, sceneFailed, entering }: MobileUniversePanelProps) {
   const world = focus ? getWorld(focus) : null;
 
   return <div className={styles.panel} data-universe-controls inert={entering} style={{ '--world-accent': world?.color ?? 'var(--accent)' } as CSSProperties}>
@@ -78,6 +79,9 @@ export default function MobileUniversePanel({ focus, onFocus, onEnter, onOpenAtl
         Universe map<span aria-hidden="true">↗</span>
       </button>
       <p>All worlds, topics and constellations</p>
+      <button className={styles.mapButton} onClick={onOpenDesignGuide} disabled={entering}>
+        Design insights<span aria-hidden="true">↗</span>
+      </button>
     </footer>
   </div>;
 }

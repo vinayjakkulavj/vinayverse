@@ -10,6 +10,7 @@ import CosmicBackdrop from './CosmicBackdrop';
 import PlanetImpacts from './PlanetImpacts';
 import UniverseFormation from './UniverseFormation';
 import { createOrbitSampler } from '@/lib/orbits';
+import { eclipseCoverage, type EclipseReading } from '@/lib/eclipse';
 
 type SceneProps = {
   focus: WorldId | null;
@@ -143,6 +144,85 @@ function damping(rate: number, delta: number) {
   return -Math.expm1(-Math.max(delta, 0) * rate);
 }
 
+function useEclipses(objects: ObjectMap, formation: FormationProgress, small: boolean, reducedMotion: boolean) {
+  const readings = useMemo<EclipseReading[]>(() => worlds.map(() => ({ amount: 0, occluder: null })), []);
+  const positions = useMemo(() => worlds.map(() => new Vector3()), []);
+  const present = useMemo(() => new Uint8Array(worlds.length), []);
+  const radii = useMemo(() => small ? [.48, .46, .53] : [.5, .52, .57], [small]);
+  const sunPosition = useMemo(() => new Vector3(), []);
+  useFrame((_, delta) => {
+    const sun = objects.current.get('sun');
+    if (!sun) return;
+    sun.updateWorldMatrix(true, false);
+    sun.getWorldPosition(sunPosition);
+    worlds.forEach((world, index) => {
+      const object = objects.current.get(world.slug);
+      present[index] = object ? 1 : 0;
+      if (!object) return;
+      object.updateWorldMatrix(true, false);
+      object.getWorldPosition(positions[index]);
+    });
+    for (let receiver = 0; receiver < worlds.length; receiver += 1) {
+      let coverage = 0;
+      let source: string | null = null;
+      if (formation.current === 1 && present[receiver]) {
+        for (let occluder = 0; occluder < worlds.length; occluder += 1) {
+          if (occluder === receiver || !present[occluder]) continue;
+          const overlap = eclipseCoverage(sunPosition, small ? .67 : .9, positions[occluder], radii[occluder], positions[receiver]);
+          if (overlap > coverage) { coverage = overlap; source = worlds[occluder].slug; }
+        }
+      }
+      const reading = readings[receiver];
+      reading.amount += (coverage - reading.amount) * (reducedMotion ? 1 : damping(4, delta));
+      reading.occluder = source ?? (reading.amount > .005 ? reading.occluder : null);
+    }
+  }, -.75);
+  return readings;
+}
+
+function useEclipseCaption(eclipse: EclipseReading) {
+  const caption = useRef<HTMLButtonElement>(null);
+  useFrame(() => {
+    if (!caption.current) return;
+    const amount = (Math.round(eclipse.amount * 50) / 50).toFixed(2);
+    if (caption.current.dataset.eclipse !== amount) caption.current.dataset.eclipse = amount;
+    const source = eclipse.occluder ?? '';
+    if (caption.current.dataset.eclipseSource !== source) caption.current.dataset.eclipseSource = source;
+  });
+  return caption;
+}
+
+type OrbitPreview = { start: number; target: number; elapsed: number };
+
+function useOrbitPreview(phase: MutableRefObject<number>, formation: FormationProgress, reducedMotion: boolean) {
+  const preview = useRef<OrbitPreview | null>(null);
+  const { invalidate } = useThree();
+  useEffect(() => {
+    const align = () => {
+      if (formation.current !== 1) return;
+      const wrapped = ((phase.current % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      const shortest = wrapped > Math.PI ? Math.PI * 2 - wrapped : -wrapped;
+      if (reducedMotion) phase.current += shortest;
+      else preview.current = { start: phase.current, target: phase.current + shortest, elapsed: 0 };
+      invalidate();
+    };
+    window.addEventListener('vinayverse-preview-eclipse', align);
+    return () => window.removeEventListener('vinayverse-preview-eclipse', align);
+  }, [formation, invalidate, phase, reducedMotion]);
+  return preview;
+}
+
+function advanceOrbitalPhase(phase: MutableRefObject<number>, preview: MutableRefObject<OrbitPreview | null>, initial: number, speed: number, formation: FormationProgress, reducedMotion: boolean, delta: number) {
+  if (formation.current < 1) { phase.current = initial; preview.current = null; }
+  else if (preview.current) {
+    const alignment = preview.current;
+    alignment.elapsed += Math.min(delta, .1);
+    const amount = smootherstep(alignment.elapsed / 2.8);
+    phase.current = alignment.start + (alignment.target - alignment.start) * amount;
+    if (amount === 1) preview.current = null;
+  } else if (!reducedMotion) phase.current += delta * speed;
+}
+
 function WorldTrack({ index, focus }: { index: number; focus: WorldId | null }) {
   const points = useMemo(() => Array.from({length:241},(_,step)=>orbitSamplers[index](new Vector3(),step/240*Math.PI*2)),[index]);
   const selected = focus === worlds[index].id;
@@ -157,7 +237,7 @@ function Orbit({ radius, height = 1, color, opacity, tilt = 0 }: { radius: numbe
   return <Line points={points} color={color} transparent opacity={opacity} lineWidth={.65} depthWrite={false}/>;
 }
 
-function Planet({ radius, color, kind, dim, reducedMotion, formation, energy = 0 }: { radius: number; color: string; kind: number; dim: boolean; reducedMotion: boolean; formation: FormationProgress; energy?: number }) {
+function Planet({ radius, color, kind, dim, reducedMotion, formation, eclipse, energy = 0 }: { radius: number; color: string; kind: number; dim: boolean; reducedMotion: boolean; formation: FormationProgress; eclipse?: EclipseReading; energy?: number }) {
   const surface = useRef<ShaderMaterial>(null);
   const atmosphere = useRef<ShaderMaterial>(null);
   const mesh = useRef<Mesh>(null);
@@ -165,12 +245,13 @@ function Planet({ radius, color, kind, dim, reducedMotion, formation, energy = 0
   const atmosphereUniforms = useMemo(() => ({ uColor: { value: new Color(color) }, uOpacity: { value: .35 } }), [color]);
   const tiny = radius < .2;
   useFrame((_, delta) => {
+    const illumination = 1 - (eclipse?.amount ?? 0) * .86;
     if (surface.current) {
       if (!reducedMotion) surface.current.uniforms.uTime.value += Math.min(delta,.05);
-      surface.current.uniforms.uBrightness.value += ((dim ? .34 : 1) - surface.current.uniforms.uBrightness.value) * (reducedMotion ? 1 : damping(5, delta));
+      surface.current.uniforms.uBrightness.value += ((dim ? .34 : 1) * illumination - surface.current.uniforms.uBrightness.value) * (reducedMotion ? 1 : damping(5, delta));
       surface.current.uniforms.uReveal.value = formationReveal(formation);
     }
-    if (atmosphere.current) atmosphere.current.uniforms.uOpacity.value = (dim ? .07 : kind === 0 ? .19 : .3) * formationReveal(formation);
+    if (atmosphere.current) atmosphere.current.uniforms.uOpacity.value = (dim ? .07 : kind === 0 ? .19 : .3) * illumination * formationReveal(formation);
     if (mesh.current && !reducedMotion) mesh.current.rotation.y += delta * (kind === 0 ? .14 : .045);
   });
   return <group>
@@ -179,11 +260,17 @@ function Planet({ radius, color, kind, dim, reducedMotion, formation, energy = 0
   </group>;
 }
 
-function Halo({ color, size, opacity, formation }: { color: string; size: number; opacity: number; formation: FormationProgress }) {
+function Halo({ color, size, opacity, formation, eclipse }: { color: string; size: number; opacity: number; formation: FormationProgress; eclipse?: EclipseReading }) {
   const material = useRef<ShaderMaterial>(null);
   const uniforms = useMemo(() => ({ uColor: { value: new Color(color) }, uOpacity: { value: opacity } }), [color, opacity]);
-  useFrame(() => { if (material.current) material.current.uniforms.uOpacity.value = opacity * formationReveal(formation); });
+  useFrame(() => { if (material.current) material.current.uniforms.uOpacity.value = opacity * (1 - (eclipse?.amount ?? 0) * .86) * formationReveal(formation); });
   return <Billboard position={[0,0,-.25]}><mesh raycast={() => undefined}><planeGeometry args={[size,size]}/><shaderMaterial ref={material} uniforms={uniforms} vertexShader={haloVertex} fragmentShader={haloFragment} transparent blending={AdditiveBlending} depthWrite={false} toneMapped={false}/></mesh></Billboard>;
+}
+
+function PlanetRing({ dim, eclipse, formation, compact = false }: { dim: boolean; eclipse: EclipseReading; formation: FormationProgress; compact?: boolean }) {
+  const material = useRef<MeshBasicMaterial>(null);
+  useFrame(() => { if (material.current) material.current.opacity = (dim ? .07 : .23) * (1 - eclipse.amount * .86) * formationReveal(formation); });
+  return <mesh rotation={[1.15,.25,-.38]}><ringGeometry args={[.77,1.03,compact ? 64 : 100]}/><meshBasicMaterial ref={material} color="#75b9ba" transparent opacity={dim ? .07 : .23} side={2} depthWrite={false}/></mesh>;
 }
 
 function Sun({ visited, reducedMotion, formation }: { visited: string[]; focus: WorldId | null; reducedMotion: boolean; formation: FormationProgress }) {
@@ -223,9 +310,11 @@ function Moon({ slug, color, kind, index, count, active, reducedMotion, onEnter,
   </group>;
 }
 
-function WorldSystem({ world, index, focus, onFocus, onEnter, reducedMotion, objects, visited, labelPortal, small, formation, formationId, opening, forming }: { world: World; index: number; focus: WorldId | null; onFocus: SceneProps['onFocus']; onEnter: SceneProps['onEnter']; reducedMotion: boolean; objects: ObjectMap; visited: string[]; labelPortal: RefObject<HTMLElement>; small: boolean; formation: FormationProgress; formationId: number; opening: boolean; forming: boolean }) {
+function WorldSystem({ world, index, focus, onFocus, onEnter, reducedMotion, objects, visited, labelPortal, small, formation, formationId, opening, forming, eclipse }: { world: World; index: number; focus: WorldId | null; onFocus: SceneProps['onFocus']; onEnter: SceneProps['onEnter']; reducedMotion: boolean; objects: ObjectMap; visited: string[]; labelPortal: RefObject<HTMLElement>; small: boolean; formation: FormationProgress; formationId: number; opening: boolean; forming: boolean; eclipse: EclipseReading }) {
   const group = useRef<Group>(null);
   const phase = useRef(orbital[index].phase);
+  const preview = useOrbitPreview(phase, formation, reducedMotion);
+  const caption = useEclipseCaption(eclipse);
   const [hover, setHover] = useState(false);
   const active = focus === world.id;
   const dim = focus !== null && !active;
@@ -239,20 +328,19 @@ function WorldSystem({ world, index, focus, onFocus, onEnter, reducedMotion, obj
   }, [index, opening, formationId]);
   useFrame((_, delta) => {
     if (!group.current) return;
-    if (formation.current < 1) phase.current = orbital[index].phase;
-    else if (!reducedMotion) phase.current += delta*orbital[index].speed;
+    advanceOrbitalPhase(phase, preview, orbital[index].phase, orbital[index].speed, formation, reducedMotion, delta);
     orbitSamplers[index](group.current.position,phase.current);
   }, -1);
   const choose = () => { if (formation.current === 1) { if (active) onEnter(world.slug); else onFocus(world.id); } };
   const hoverWorld = (event: ThreeEvent<PointerEvent>) => { event.stopPropagation(); if (formation.current < 1) return; setHover(true); if (event.pointerType === 'mouse') onFocus(world.id); };
   return <group ref={group} position={initialPosition}>
     <FormationBody formation={formation}><group onPointerOver={hoverWorld} onPointerOut={() => setHover(false)} onClick={(event) => { event.stopPropagation(); choose(); }}>
-      <Halo color={world.color} size={2.8} opacity={dim ? .06 : hover ? .23 : .12} formation={formation}/>
-      <Planet radius={radius} color={world.color} kind={index+1} dim={dim} reducedMotion={reducedMotion} formation={formation}/>
+      <Halo color={world.color} size={2.8} opacity={dim ? .06 : hover ? .23 : .12} formation={formation} eclipse={eclipse}/>
+      <Planet radius={radius} color={world.color} kind={index+1} dim={dim} reducedMotion={reducedMotion} formation={formation} eclipse={eclipse}/>
       {!opening && !forming && <PlanetImpacts radius={radius} index={index} dim={dim} reducedMotion={reducedMotion}/>}
-      {index===2 && <mesh rotation={[1.15,.25,-.38]}><ringGeometry args={[.77,1.03,100]}/><meshBasicMaterial color="#75b9ba" transparent opacity={dim?.07:.23} side={2} depthWrite={false}/></mesh>}
+      {index===2 && <PlanetRing dim={dim} eclipse={eclipse} formation={formation}/>}
     </group></FormationBody>
-    <Billboard><FormationLabel portal={labelPortal} center position={[0,-radius-.37,0]} zIndexRange={[6,0]} formation={formation}><button className="planet-label" data-gravity data-active={active} style={{ opacity: dim ? .4 : 1 }} onFocus={(event) => { if(event.currentTarget.matches(':focus-visible') && formation.current === 1) onFocus(world.id); }} onClick={(event) => { event.stopPropagation(); choose(); }} aria-label={`${active ? 'Enter' : 'Focus'} ${world.title}`}><strong>{world.title}</strong><small>{world.subtitle}</small></button></FormationLabel></Billboard>
+    <Billboard><FormationLabel portal={labelPortal} center position={[0,-radius-.37,0]} zIndexRange={[6,0]} formation={formation}><button ref={caption} className="planet-label" data-gravity data-active={active} data-eclipse="0.00" data-eclipse-source="" style={{ opacity: dim ? .4 : 1 }} onFocus={(event) => { if(event.currentTarget.matches(':focus-visible') && formation.current === 1) onFocus(world.id); }} onClick={(event) => { event.stopPropagation(); choose(); }} aria-label={`${active ? 'Enter' : 'Focus'} ${world.title}`}><strong>{world.title}</strong><small>{world.subtitle}</small></button></FormationLabel></Billboard>
     {active && <FormationBody formation={formation} grow={false}><Orbit radius={1.65} height={index===1?.83:.95} color={world.color} opacity={.2} tilt={.22}/></FormationBody>}
     {world.topics.map((slug, moonIndex) => <Moon key={slug} slug={slug} index={moonIndex} count={world.topics.length} color={world.color} kind={index+1} active={active} reducedMotion={reducedMotion} onEnter={onEnter} objects={objects} visited={visited} labelPortal={labelPortal} small={small} formation={formation}/>)}
   </group>;
@@ -296,7 +384,7 @@ function compactCameraDistance(aspect: number) {
   const verticalHalfAngle = 42 * Math.PI / 360;
   const horizontalHalfAngle = Math.atan(Math.tan(verticalHalfAngle) * Math.max(aspect, .01));
   // Fit the full rotating system, including Pandora's ring and screen-facing labels.
-  return 3.45 / Math.sin(Math.min(verticalHalfAngle, horizontalHalfAngle));
+  return 4.95 / Math.sin(Math.min(verticalHalfAngle, horizontalHalfAngle));
 }
 
 function CameraRig({ objects, small, destination, reducedMotion, flightProgress }: { objects: ObjectMap; small: boolean; destination: string | null; reducedMotion: boolean; flightProgress: SceneProps['flightProgress'] }) {
@@ -384,7 +472,7 @@ function SunLabel({ sunLabel, objects, small, focus, formation, destination }: {
     if (!label || !sun) return;
     sun.updateWorldMatrix(true, false);
     sun.getWorldPosition(point);
-    point.y -= small ? .97 : 1.45;
+    point.y += small ? .94 : -1.45;
     point.project(camera);
     const transform = `translate3d(${((point.x*.5+.5)*size.width).toFixed(2)}px,${((-point.y*.5+.5)*size.height).toFixed(2)}px,0) translate(-50%,-50%)`;
     const opacity = (formationReveal(formation) * (focus && !small ? .5 : 1)).toFixed(3);
@@ -408,21 +496,76 @@ const compactWorldPositions: [number, number, number][] = [
 ];
 const compactSunPosition: [number, number, number] = [0, .12, -.2];
 
-function CompactWorld({ world, index, selected, onFocus, onEnter, reducedMotion, labelPortal, objects, formation }: { world: World; index: number; selected: boolean; onFocus: SceneProps['onFocus']; onEnter: SceneProps['onEnter']; reducedMotion: boolean; labelPortal: RefObject<HTMLElement>; objects: ObjectMap; formation: FormationProgress }) {
+// Separated tracks allow real alignments without the stylized planet bodies
+// crossing each other. The camera still fits them inside the compact canvas.
+const compactOrbital = [
+  { radius: 1.4, height: .93, depth: 0, node: 0, speed: .055 },
+  { radius: 2.5, height: .93, depth: 0, node: 0, speed: .034 },
+  { radius: 3.7, height: .93, depth: 0, node: 0, speed: .022 },
+];
+const compactOrbitSamplers = compactOrbital.map(createOrbitSampler);
+const compactInitialPhases = compactWorldPositions.map((position, index) => {
+  const height = compactOrbital[index].height;
+  const angle = (Math.atan2((position[1] - compactSunPosition[1]) / height, position[0]) + Math.PI * 2) % (Math.PI * 2);
+  const point = new Vector3();
+  let low = 0;
+  let high = Math.PI * 2;
+  // Solve arc phase once, so the familiar triangle also starts at constant
+  // geometric orbit speed rather than changing speed around the ellipse.
+  for (let step = 0; step < 28; step += 1) {
+    const middle = (low + high) / 2;
+    compactOrbitSamplers[index](point, middle);
+    const sampledAngle = (Math.atan2(point.y / height, point.x) + Math.PI * 2) % (Math.PI * 2);
+    if (sampledAngle < angle) low = middle;
+    else high = middle;
+  }
+  return (low + high) / 2;
+});
+
+function CompactTrack({ index, selected }: { index: number; selected: boolean }) {
+  const points = useMemo(() => Array.from({ length: 161 }, (_, step) => compactOrbitSamplers[index](new Vector3(), step / 160 * Math.PI * 2)), [index]);
+  return <group position={compactSunPosition}><Line points={points} color={worlds[index].color} transparent opacity={selected ? .25 : .11} lineWidth={.7} depthWrite={false}/></group>;
+}
+
+function CompactWorld({ world, index, selected, onFocus, onEnter, reducedMotion, labelPortal, objects, formation, formationId, opening, eclipse }: { world: World; index: number; selected: boolean; onFocus: SceneProps['onFocus']; onEnter: SceneProps['onEnter']; reducedMotion: boolean; labelPortal: RefObject<HTMLElement>; objects: ObjectMap; formation: FormationProgress; formationId: number; opening: boolean; eclipse: EclipseReading }) {
   const radius = index === 0 ? .48 : index === 1 ? .46 : .53;
+  const group = useRef<Group>(null);
+  const phase = useRef(compactInitialPhases[index]);
+  const preview = useOrbitPreview(phase, formation, reducedMotion);
+  const caption = useEclipseCaption(eclipse);
+  const initialPosition = useMemo(() => compactOrbitSamplers[index](new Vector3(), compactInitialPhases[index]).add(new Vector3(...compactSunPosition)), [index]);
+  useEffect(() => { if (group.current) objects.current.set(world.slug, group.current); return () => { objects.current.delete(world.slug); }; }, [world.slug, objects]);
+  useLayoutEffect(() => {
+    if (!opening && formationId === 0) return;
+    phase.current = compactInitialPhases[index];
+    if (group.current) {
+      compactOrbitSamplers[index](group.current.position, phase.current);
+      group.current.position.x += compactSunPosition[0];
+      group.current.position.y += compactSunPosition[1];
+      group.current.position.z += compactSunPosition[2];
+    }
+  }, [index, opening, formationId]);
+  useFrame((_, delta) => {
+    if (!group.current) return;
+    advanceOrbitalPhase(phase, preview, compactInitialPhases[index], compactOrbital[index].speed, formation, reducedMotion, delta);
+    compactOrbitSamplers[index](group.current.position, phase.current);
+    group.current.position.x += compactSunPosition[0];
+    group.current.position.y += compactSunPosition[1];
+    group.current.position.z += compactSunPosition[2];
+  }, -1);
   const select = () => { if (formation.current === 1) { if (selected) onEnter(world.slug); else onFocus(world.id); } };
-  return <group position={compactWorldPositions[index]} ref={(node) => { if (node) objects.current.set(world.slug, node); else objects.current.delete(world.slug); }}>
+  return <group ref={group} position={initialPosition}>
     <FormationBody formation={formation}><group onClick={(event) => { event.stopPropagation(); select(); }}>
-      <Halo color={world.color} size={2.15} opacity={selected ? .2 : .07} formation={formation}/>
-      <Planet radius={radius} color={world.color} kind={index + 1} dim={false} reducedMotion={reducedMotion} formation={formation}/>
-      {index === 2 && <mesh rotation={[1.15,.25,-.38]}><ringGeometry args={[.77,1.03,64]}/><meshBasicMaterial color="#75b9ba" transparent opacity={.23} side={2} depthWrite={false}/></mesh>}
+      <Halo color={world.color} size={2.15} opacity={selected ? .2 : .07} formation={formation} eclipse={eclipse}/>
+      <Planet radius={radius} color={world.color} kind={index + 1} dim={false} reducedMotion={reducedMotion} formation={formation} eclipse={eclipse}/>
+      {index === 2 && <PlanetRing dim={false} eclipse={eclipse} formation={formation} compact/>}
       {/* A generous hit sphere supports taps around the visible planet. */}
       <mesh>
         <sphereGeometry args={[radius + .3, 16, 12]}/>
         <meshBasicMaterial transparent opacity={0} colorWrite={false} depthWrite={false}/>
       </mesh>
     </group></FormationBody>
-    <Billboard><FormationLabel portal={labelPortal} center position={[0,-radius-.6,0]} zIndexRange={[6,0]} formation={formation}><button className="planet-label compact-planet-label" data-world={world.id} data-selected={selected} aria-pressed={selected} aria-label={`${selected ? 'Enter' : 'Select'} ${world.title}`} onClick={(event) => { event.stopPropagation(); select(); }}>
+    <Billboard><FormationLabel portal={labelPortal} center position={[0,-radius-.6,0]} zIndexRange={[6,0]} formation={formation}><button ref={caption} className="planet-label compact-planet-label" data-world={world.id} data-selected={selected} data-eclipse="0.00" data-eclipse-source="" aria-pressed={selected} aria-label={`${selected ? 'Enter' : 'Select'} ${world.title}`} onClick={(event) => { event.stopPropagation(); select(); }}>
         <strong>{world.title}</strong>
       </button></FormationLabel></Billboard>
   </group>;
@@ -432,6 +575,7 @@ function CompactScene({ focus, onFocus, onEnter, rotation, reducedMotion, visite
   const group = useRef<Group>(null);
   const objects = useRef(new Map<string, Group>());
   const formation = useFormation(formationId, onFormationComplete, reducedMotion, opening);
+  const eclipses = useEclipses(objects, formation, true, reducedMotion);
   const travellersVisible = useTravellerVisibility(formation, opening, forming);
   const { invalidate } = useThree();
   useEffect(() => { const refresh = () => invalidate(); window.addEventListener('douknowme-rotate', refresh); return () => window.removeEventListener('douknowme-rotate', refresh); }, [invalidate]);
@@ -450,13 +594,12 @@ function CompactScene({ focus, onFocus, onEnter, rotation, reducedMotion, visite
     <CosmicBackdrop rotation={rotation} reducedMotion={reducedMotion} small={true} travellersVisible={travellersVisible}/>
     <group ref={group} rotation={[-.06,0,.025]}>
     <group position={compactSunPosition} ref={(node) => { if (node) objects.current.set('sun', node); else objects.current.delete('sun'); }}>
-      <FormationBody formation={formation} grow={false}>
-        <Orbit radius={2.42} height={.69} color="#8da4bf" opacity={.09}/>
-        <Orbit radius={2.75} height={.84} color="#8da4bf" opacity={.055}/>
-      </FormationBody>
       <FormationBody formation={formation}><Planet radius={.67} color="#bc4b2e" kind={0} dim={false} reducedMotion={reducedMotion} formation={formation} energy={Math.min(visited.length / 12, 1)}/></FormationBody>
     </group>
-    {worlds.map((world,index) => <CompactWorld key={world.id} world={world} index={index} selected={focus === world.id} onFocus={onFocus} onEnter={onEnter} reducedMotion={reducedMotion} labelPortal={labelPortal} objects={objects} formation={formation}/>)}
+    {worlds.map((world,index) => <group key={world.id}>
+      <FormationBody formation={formation} grow={false}><CompactTrack index={index} selected={focus === world.id}/></FormationBody>
+      <CompactWorld world={world} index={index} selected={focus === world.id} onFocus={onFocus} onEnter={onEnter} reducedMotion={reducedMotion} labelPortal={labelPortal} objects={objects} formation={formation} formationId={formationId} opening={opening} eclipse={eclipses[index]}/>
+    </group>)}
     </group>
     <UniverseFormation progress={formation} targets={objects} small={true} reducedMotion={reducedMotion} preview={opening && formationId === 0}/>
   </>;
@@ -466,6 +609,7 @@ function Scene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, smal
   const group = useRef<Group>(null);
   const objects = useRef(new Map<string, Group>());
   const formation = useFormation(formationId, onFormationComplete, reducedMotion, opening);
+  const eclipses = useEclipses(objects, formation, small, reducedMotion);
   const travellersVisible = useTravellerVisibility(formation, opening, forming);
   const { invalidate } = useThree();
   useEffect(() => { const refresh = () => invalidate(); window.addEventListener('douknowme-rotate', refresh); return () => window.removeEventListener('douknowme-rotate', refresh); }, [invalidate]);
@@ -487,7 +631,7 @@ function Scene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, smal
       <group ref={(node) => { if (node) objects.current.set('sun', node); else objects.current.delete('sun'); }}><FormationBody formation={formation}><Sun visited={visited} focus={focus} reducedMotion={reducedMotion} formation={formation}/></FormationBody></group>
       {worlds.map((world,index) => <group key={world.id}>
         <FormationBody formation={formation} grow={false}><WorldTrack index={index} focus={focus}/></FormationBody>
-        <WorldSystem world={world} index={index} focus={focus} onFocus={onFocus} onEnter={onEnter} reducedMotion={reducedMotion} objects={objects} visited={visited} labelPortal={labelPortal} small={small} formation={formation} formationId={formationId} opening={opening} forming={forming}/>
+        <WorldSystem world={world} index={index} focus={focus} onFocus={onFocus} onEnter={onEnter} reducedMotion={reducedMotion} objects={objects} visited={visited} labelPortal={labelPortal} small={small} formation={formation} formationId={formationId} opening={opening} forming={forming} eclipse={eclipses[index]}/>
       </group>)}
       <FormationBody formation={formation} grow={false}>
         <Constellations onEnter={onEnter} focus={focus} objects={objects} labelPortal={labelPortal} formation={formation}/>

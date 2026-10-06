@@ -3,7 +3,7 @@
 import { gsap } from 'gsap';
 import { useEffect, useRef, type RefObject } from 'react';
 
-const DRAW_DURATION = 3.5;
+const DRAW_DURATION = 2.5;
 const DRAW_START = .18;
 const ROW_TRANSFER = .14;
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
@@ -83,7 +83,7 @@ export default function TitleDrawing({ titleRef, reducedMotion, onReady }: {
     const sequence = gsap.timeline()
       .to(clock, { elapsed: DRAW_DURATION, duration: DRAW_DURATION, ease: 'none', onUpdate: render }, DRAW_START)
       .call(showTitle, [], DRAW_START + DRAW_DURATION)
-      .call(() => { finished.current = true; onReady(); }, [], 3.8);
+      .call(() => { finished.current = true; onReady(); }, [], 2.8);
     const update = () => { measure(); render(); };
     const observer = new ResizeObserver(update);
     observer.observe(title);
