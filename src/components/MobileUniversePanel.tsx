@@ -71,7 +71,7 @@ export default function MobileUniversePanel({ focus, onFocus, onEnter, onOpenAtl
     </nav>
     {world ? <WorldDetails key={world.id} world={world} onEnter={onEnter} entering={entering}/> : <section className={styles.browsePrompt} aria-label="Explore a world">
       <h2>Choose a world</h2>
-      <p>{sceneFailed ? 'Choose a world above, or find every topic in the universe map.' : 'Tap a planet or choose a world above to explore.'}</p>
+      <p>{sceneFailed ? 'Choose a world above, or find every topic in the universe map.' : 'Drag empty space to rotate. Tap a planet or choose a world above to explore.'}</p>
     </section>}
     <footer className={styles.footer}>
       <button className={styles.mapButton} onClick={onOpenAtlas} disabled={entering}>

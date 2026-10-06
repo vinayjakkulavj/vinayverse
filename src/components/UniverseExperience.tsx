@@ -100,7 +100,7 @@ export default function UniverseExperience() {
     settleTween.current = gsap.to(geometry, {
       top: main.current.getBoundingClientRect().top + titleBlock.offsetTop + titleBlock.offsetHeight + 8,
       height: Math.max(300, Math.min(380, window.innerWidth * .78)),
-      duration: .85,
+      duration: .65,
       ease: 'power2.inOut',
       onUpdate: () => {
         main.current?.style.setProperty('--formation-stage-top', `${geometry.top}px`);
@@ -120,7 +120,7 @@ export default function UniverseExperience() {
     setForming(true);
     setFormationId((previous) => previous + 1);
     if (formationTimeout.current) clearTimeout(formationTimeout.current);
-    formationTimeout.current = setTimeout(() => finishFormation(true), 8500);
+    formationTimeout.current = setTimeout(() => finishFormation(true), 5500);
   }, [reducedMotion, sceneFailed, finishFormation]);
   const failScene = useCallback(() => { setSceneFailed(true); finishFormation(true); }, [finishFormation]);
 
@@ -155,13 +155,13 @@ export default function UniverseExperience() {
       lastTime = now;
       if (!pointer.current && !reducedMotion) {
         rotation.current.y += inertia.current.y * steps;
-        rotation.current.x = Math.max(-1.1, Math.min(.9, rotation.current.x + inertia.current.x * steps));
-        const damping = Math.pow(.93, steps);
+        rotation.current.x = Math.max(small ? -.65 : -1.1, Math.min(small ? .65 : .9, rotation.current.x + inertia.current.x * steps));
+        const damping = Math.pow(small ? .9 : .93, steps);
         inertia.current.x *= damping; inertia.current.y *= damping;
       }
       frame = requestAnimationFrame(decay);
     };
-    if (entered && !reducedMotion && !small) frame = requestAnimationFrame(decay);
+    if (entered && !reducedMotion) frame = requestAnimationFrame(decay);
     return () => cancelAnimationFrame(frame);
   }, [entered, reducedMotion, small]);
 
@@ -244,7 +244,7 @@ export default function UniverseExperience() {
     setTimeout(() => heading.current?.focus({ preventScroll: true }), 0);
   };
   const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (small || opening || entering || !(event.target instanceof HTMLCanvasElement) || event.button !== 0) return;
+    if (opening || forming || entering || pointer.current || !event.isPrimary || !(event.target instanceof HTMLCanvasElement) || event.button !== 0) return;
     pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY, distance: 0, moved: false, capture: event.target };
     suppressClick.current = false;
     event.target.setPointerCapture(event.pointerId);
@@ -256,9 +256,15 @@ export default function UniverseExperience() {
     const dx = event.clientX - previous.x, dy = event.clientY - previous.y;
     previous.distance += Math.abs(dx) + Math.abs(dy);
     if (previous.distance > 4) { previous.moved = true; setDragging(true); }
-    rotation.current.y += dx * .0035;
-    rotation.current.x = Math.max(-1.1, Math.min(.9, rotation.current.x + dy * .003));
-    inertia.current = { x: dy * .0025, y: dx * .0035 };
+    const yawGain = small ? .006 : .0035;
+    const pitchGain = small ? .004 : .003;
+    const velocityLimit = small ? .045 : .08;
+    rotation.current.y += dx * yawGain;
+    rotation.current.x = Math.max(small ? -.65 : -1.1, Math.min(small ? .65 : .9, rotation.current.x + dy * pitchGain));
+    inertia.current = {
+      x: Math.max(-velocityLimit, Math.min(velocityLimit, dy * pitchGain * .8)),
+      y: Math.max(-velocityLimit, Math.min(velocityLimit, dx * yawGain * .8)),
+    };
     previous.x = event.clientX; previous.y = event.clientY;
     window.dispatchEvent(new Event('douknowme-rotate'));
   };
@@ -286,8 +292,8 @@ export default function UniverseExperience() {
   return <>
     <main ref={main} id="main-content" className={`universe-shell${small ? ' compact-universe' : ''}`} inert={opening || forming || !!entering} data-opening={opening} data-forming={forming} data-entering={!!entering}>
       <div className="universe-heading"><h1 className="eyebrow" ref={heading} tabIndex={-1}>Welcome to my universe</h1><p>{!small && world ? world.subtitle : 'Engineer. Builder. Curious human.'}</p></div>
-      <div ref={setStageNode} className={`universe-stage ${dragging ? 'is-dragging' : ''}`} onPointerDown={startDrag} onPointerMove={drag} onPointerUp={stopDrag} onPointerCancel={stopDrag} onLostPointerCapture={() => { pointer.current = null; setDragging(false); }}>
-        {labelPortal && <SceneBoundary onError={failScene}><UniverseScene focus={focus} onFocus={focusWorld} onEnter={openTopic} rotation={rotation} reducedMotion={reducedMotion} visited={visited} small={small} destination={entering} sunLabel={sunLabel} labelPortal={labelPortal} formationId={formationId} opening={opening} onFormationComplete={finishFormation} flightProgress={flightProgress}/></SceneBoundary>}
+      <div ref={setStageNode} className={`universe-stage ${dragging ? 'is-dragging' : ''}`} onPointerDown={startDrag} onPointerMove={drag} onPointerUp={stopDrag} onPointerCancel={stopDrag} onLostPointerCapture={stopDrag}>
+        {labelPortal && <SceneBoundary onError={failScene}><UniverseScene focus={focus} onFocus={focusWorld} onEnter={openTopic} rotation={rotation} reducedMotion={reducedMotion} visited={visited} small={small} destination={entering} sunLabel={sunLabel} labelPortal={labelPortal} formationId={formationId} opening={opening} forming={forming} onFormationComplete={finishFormation} flightProgress={flightProgress}/></SceneBoundary>}
         <div ref={sunLabel} className="sun-position" data-gravity><div className="sun-label"><strong>VINAY</strong><span>Engineer · Builder · Curious Human</span>{visited.length > 7 && <em>You know a little more now.</em>}</div></div>
       </div>
       {small ? <MobileUniversePanel focus={focus} onFocus={focusWorld} onEnter={openTopic} onOpenAtlas={() => setAtlas(true)} sceneFailed={sceneFailed} entering={!!entering}/> : <>

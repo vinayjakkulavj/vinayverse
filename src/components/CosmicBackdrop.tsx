@@ -9,6 +9,7 @@ type CosmicBackdropProps = {
   rotation: MutableRefObject<{ x: number; y: number }>;
   reducedMotion: boolean;
   small: boolean;
+  travellersVisible?: MutableRefObject<boolean>;
 };
 
 type Particles = {
@@ -330,10 +331,12 @@ function SkyTraveller({ time, start, end, period, delay, duration, comet = false
   </group>;
 }
 
-export default function CosmicBackdrop({ rotation, reducedMotion, small }: CosmicBackdropProps) {
+export default function CosmicBackdrop({ rotation, reducedMotion, small, travellersVisible }: CosmicBackdropProps) {
   const surround = useRef<Group>(null);
   const near = useRef<Group>(null), middle = useRef<Group>(null), far = useRef<Group>(null);
   const time = useRef(0);
+  const travellerTime = useRef(0);
+  const travellerGroup = useRef<Group>(null);
   const size = useThree((state) => state.size);
   const aspect = size.width / Math.max(size.height, 1);
   const stars = useMemo(() => {
@@ -349,6 +352,10 @@ export default function CosmicBackdrop({ rotation, reducedMotion, small }: Cosmi
 
   useFrame(({ camera, gl }, delta) => {
     if (!reducedMotion) time.current += Math.min(delta, 0.08);
+    const ready = travellersVisible?.current ?? true;
+    if (!ready) travellerTime.current = 0;
+    else if (!reducedMotion) travellerTime.current += Math.min(delta, 0.08);
+    if (travellerGroup.current) travellerGroup.current.visible = ready;
     if (surround.current) surround.current.position.copy(camera.position);
     const amount = reducedMotion ? 1 : 1 - Math.exp(-Math.min(delta, 0.08) * 4);
     const layers = [near.current, middle.current, far.current];
@@ -368,7 +375,9 @@ export default function CosmicBackdrop({ rotation, reducedMotion, small }: Cosmi
     <group ref={middle}>
       <StarLayer data={stars[1]} uniforms={uniforms}/>
       <DecorativeConstellations aspect={aspect} uniforms={uniforms}/>
-      {!reducedMotion && travellers.map((traveller, index) => <SkyTraveller key={index} time={time} {...traveller}/>)}
+      {!reducedMotion && <group ref={travellerGroup} visible={travellersVisible?.current ?? true}>
+        {travellers.map((traveller, index) => <SkyTraveller key={index} time={travellerTime} {...traveller}/>)}
+      </group>}
     </group>
     <group ref={near}><StarLayer data={stars[0]} uniforms={uniforms}/></group>
   </group>;

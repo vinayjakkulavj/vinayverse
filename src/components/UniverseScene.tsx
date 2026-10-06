@@ -26,6 +26,7 @@ type SceneProps = {
   onFormationComplete: () => void;
   flightProgress: MutableRefObject<number>;
   opening: boolean;
+  forming: boolean;
 };
 type ObjectMap = MutableRefObject<Map<string, Group>>;
 type FormationProgress = MutableRefObject<number>;
@@ -67,13 +68,20 @@ function useFormation(formationId: number, onComplete: () => void, reducedMotion
   useFrame((_, delta) => {
     if (!pending.current) return;
     elapsed.current += Math.min(delta, .1);
-    progress.current = Math.min(1, elapsed.current / 5.8);
+    progress.current = Math.min(1, elapsed.current / 3.5);
     if (progress.current === 1) {
       pending.current = false;
       complete.current();
     }
   }, -2);
   return progress;
+}
+
+function useTravellerVisibility(formation: FormationProgress, opening: boolean, forming: boolean) {
+  const visible = useRef(!opening && !forming && formation.current === 1);
+  // Root forming also includes the phone canvas settling into its final space.
+  useFrame(() => { visible.current = !opening && !forming && formation.current === 1; }, -1.5);
+  return visible;
 }
 
 function FormationBody({ formation, children, grow = true }: { formation: FormationProgress; children: ReactNode; grow?: boolean }) {
@@ -215,7 +223,7 @@ function Moon({ slug, color, kind, index, count, active, reducedMotion, onEnter,
   </group>;
 }
 
-function WorldSystem({ world, index, focus, onFocus, onEnter, reducedMotion, objects, visited, labelPortal, small, formation, formationId, opening }: { world: World; index: number; focus: WorldId | null; onFocus: SceneProps['onFocus']; onEnter: SceneProps['onEnter']; reducedMotion: boolean; objects: ObjectMap; visited: string[]; labelPortal: RefObject<HTMLElement>; small: boolean; formation: FormationProgress; formationId: number; opening: boolean }) {
+function WorldSystem({ world, index, focus, onFocus, onEnter, reducedMotion, objects, visited, labelPortal, small, formation, formationId, opening, forming }: { world: World; index: number; focus: WorldId | null; onFocus: SceneProps['onFocus']; onEnter: SceneProps['onEnter']; reducedMotion: boolean; objects: ObjectMap; visited: string[]; labelPortal: RefObject<HTMLElement>; small: boolean; formation: FormationProgress; formationId: number; opening: boolean; forming: boolean }) {
   const group = useRef<Group>(null);
   const phase = useRef(orbital[index].phase);
   const [hover, setHover] = useState(false);
@@ -241,7 +249,7 @@ function WorldSystem({ world, index, focus, onFocus, onEnter, reducedMotion, obj
     <FormationBody formation={formation}><group onPointerOver={hoverWorld} onPointerOut={() => setHover(false)} onClick={(event) => { event.stopPropagation(); choose(); }}>
       <Halo color={world.color} size={2.8} opacity={dim ? .06 : hover ? .23 : .12} formation={formation}/>
       <Planet radius={radius} color={world.color} kind={index+1} dim={dim} reducedMotion={reducedMotion} formation={formation}/>
-      <PlanetImpacts radius={radius} index={index} dim={dim} reducedMotion={reducedMotion}/>
+      {!opening && !forming && <PlanetImpacts radius={radius} index={index} dim={dim} reducedMotion={reducedMotion}/>}
       {index===2 && <mesh rotation={[1.15,.25,-.38]}><ringGeometry args={[.77,1.03,100]}/><meshBasicMaterial color="#75b9ba" transparent opacity={dim?.07:.23} side={2} depthWrite={false}/></mesh>}
     </group></FormationBody>
     <Billboard><FormationLabel portal={labelPortal} center position={[0,-radius-.37,0]} zIndexRange={[6,0]} formation={formation}><button className="planet-label" data-gravity data-active={active} style={{ opacity: dim ? .4 : 1 }} onFocus={(event) => { if(event.currentTarget.matches(':focus-visible') && formation.current === 1) onFocus(world.id); }} onClick={(event) => { event.stopPropagation(); choose(); }} aria-label={`${active ? 'Enter' : 'Focus'} ${world.title}`}><strong>{world.title}</strong><small>{world.subtitle}</small></button></FormationLabel></Billboard>
@@ -284,6 +292,13 @@ function destinationRadius(destination: string, small: boolean) {
   return topic?.kind === 'constellation' ? .06 : .16;
 }
 
+function compactCameraDistance(aspect: number) {
+  const verticalHalfAngle = 42 * Math.PI / 360;
+  const horizontalHalfAngle = Math.atan(Math.tan(verticalHalfAngle) * Math.max(aspect, .01));
+  // Fit the full rotating system, including Pandora's ring and screen-facing labels.
+  return 3.45 / Math.sin(Math.min(verticalHalfAngle, horizontalHalfAngle));
+}
+
 function CameraRig({ objects, small, destination, reducedMotion, flightProgress }: { objects: ObjectMap; small: boolean; destination: string | null; reducedMotion: boolean; flightProgress: SceneProps['flightProgress'] }) {
   const { camera, size, invalidate } = useThree();
   const target = useRef(new Vector3(0, small ? -.22 : .1, 0));
@@ -299,8 +314,7 @@ function CameraRig({ objects, small, destination, reducedMotion, flightProgress 
     if (!(camera instanceof PerspectiveCamera) || size.width <= 0 || size.height <= 0) return;
     camera.aspect = size.width / size.height;
     if (small && !destination) {
-      const halfHeight = Math.max(2.7, 3.5 / camera.aspect);
-      camera.position.set(0,-.22,halfHeight / Math.tan(42 * Math.PI / 360));
+      camera.position.set(0,-.22,compactCameraDistance(camera.aspect));
       camera.lookAt(0,-.22,0);
       target.current.set(0,-.22,0);
     }
@@ -340,7 +354,7 @@ function CameraRig({ objects, small, destination, reducedMotion, flightProgress 
       flightDestination.current = null;
       const aspect = size.width / Math.max(size.height, 1);
       const z = small
-        ? Math.max(2.7, 3.5 / aspect) / Math.tan(42 * Math.PI / 360)
+        ? compactCameraDistance(aspect)
         : Math.max(14.8, 16.5 / (2 * Math.tan(42 * Math.PI / 360) * aspect));
       point.set(0,small ? -.22 : .1,0);
       cameraGoal.copy(point);
@@ -408,22 +422,33 @@ function CompactWorld({ world, index, selected, onFocus, onEnter, reducedMotion,
         <meshBasicMaterial transparent opacity={0} colorWrite={false} depthWrite={false}/>
       </mesh>
     </group></FormationBody>
-    <FormationLabel portal={labelPortal} center position={[0,-radius-.6,0]} zIndexRange={[6,0]} formation={formation}><button className="planet-label compact-planet-label" data-world={world.id} data-selected={selected} aria-pressed={selected} aria-label={`${selected ? 'Enter' : 'Select'} ${world.title}`} onClick={(event) => { event.stopPropagation(); select(); }}>
+    <Billboard><FormationLabel portal={labelPortal} center position={[0,-radius-.6,0]} zIndexRange={[6,0]} formation={formation}><button className="planet-label compact-planet-label" data-world={world.id} data-selected={selected} aria-pressed={selected} aria-label={`${selected ? 'Enter' : 'Select'} ${world.title}`} onClick={(event) => { event.stopPropagation(); select(); }}>
         <strong>{world.title}</strong>
-      </button></FormationLabel>
+      </button></FormationLabel></Billboard>
   </group>;
 }
 
-function CompactScene({ focus, onFocus, onEnter, reducedMotion, visited, sunLabel, labelPortal, formationId, onFormationComplete, destination, flightProgress, opening }: SceneProps) {
-  const backdropRotation = useRef({ x: -.06, y: -.02 });
+function CompactScene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, sunLabel, labelPortal, formationId, onFormationComplete, destination, flightProgress, opening, forming }: SceneProps) {
+  const group = useRef<Group>(null);
   const objects = useRef(new Map<string, Group>());
   const formation = useFormation(formationId, onFormationComplete, reducedMotion, opening);
+  const travellersVisible = useTravellerVisibility(formation, opening, forming);
+  const { invalidate } = useThree();
+  useEffect(() => { const refresh = () => invalidate(); window.addEventListener('douknowme-rotate', refresh); return () => window.removeEventListener('douknowme-rotate', refresh); }, [invalidate]);
+  useFrame((_, delta) => {
+    if (!group.current) return;
+    const speed = reducedMotion ? 1 : damping(14, delta);
+    const pitch = Math.max(-.55, Math.min(.55, rotation.current.x + .13));
+    group.current.rotation.x += (pitch - group.current.rotation.x) * speed;
+    group.current.rotation.y += (rotation.current.y + .12 - group.current.rotation.y) * speed;
+    group.current.rotation.z += (.025 - group.current.rotation.z) * speed;
+  }, -1);
   return <>
     <color attach="background" args={['#03050a']}/>
     <CameraRig objects={objects} small={true} destination={destination} reducedMotion={reducedMotion} flightProgress={flightProgress}/>
     <SunLabel sunLabel={sunLabel} objects={objects} small={true} focus={focus} formation={formation} destination={destination}/>
-    {/* Static phone stars retain the setting without travellers or parallax. */}
-    <CosmicBackdrop rotation={backdropRotation} reducedMotion={true} small={true}/>
+    <CosmicBackdrop rotation={rotation} reducedMotion={reducedMotion} small={true} travellersVisible={travellersVisible}/>
+    <group ref={group} rotation={[-.06,0,.025]}>
     <group position={compactSunPosition} ref={(node) => { if (node) objects.current.set('sun', node); else objects.current.delete('sun'); }}>
       <FormationBody formation={formation} grow={false}>
         <Orbit radius={2.42} height={.69} color="#8da4bf" opacity={.09}/>
@@ -432,14 +457,16 @@ function CompactScene({ focus, onFocus, onEnter, reducedMotion, visited, sunLabe
       <FormationBody formation={formation}><Planet radius={.67} color="#bc4b2e" kind={0} dim={false} reducedMotion={reducedMotion} formation={formation} energy={Math.min(visited.length / 12, 1)}/></FormationBody>
     </group>
     {worlds.map((world,index) => <CompactWorld key={world.id} world={world} index={index} selected={focus === world.id} onFocus={onFocus} onEnter={onEnter} reducedMotion={reducedMotion} labelPortal={labelPortal} objects={objects} formation={formation}/>)}
+    </group>
     <UniverseFormation progress={formation} targets={objects} small={true} reducedMotion={reducedMotion} preview={opening && formationId === 0}/>
   </>;
 }
 
-function Scene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, small, destination, sunLabel, labelPortal, formationId, onFormationComplete, flightProgress, opening }: SceneProps) {
+function Scene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, small, destination, sunLabel, labelPortal, formationId, onFormationComplete, flightProgress, opening, forming }: SceneProps) {
   const group = useRef<Group>(null);
   const objects = useRef(new Map<string, Group>());
   const formation = useFormation(formationId, onFormationComplete, reducedMotion, opening);
+  const travellersVisible = useTravellerVisibility(formation, opening, forming);
   const { invalidate } = useThree();
   useEffect(() => { const refresh = () => invalidate(); window.addEventListener('douknowme-rotate', refresh); return () => window.removeEventListener('douknowme-rotate', refresh); }, [invalidate]);
   // The modest axial tilt sits underneath the existing drag rotation. Canonical
@@ -455,12 +482,12 @@ function Scene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, smal
     <color attach="background" args={['#03050a']}/>
     <CameraRig objects={objects} small={small} destination={destination} reducedMotion={reducedMotion} flightProgress={flightProgress}/>
     <SunLabel sunLabel={sunLabel} objects={objects} small={small} focus={focus} formation={formation} destination={destination}/>
-    <CosmicBackdrop rotation={rotation} reducedMotion={reducedMotion} small={small}/>
+    <CosmicBackdrop rotation={rotation} reducedMotion={reducedMotion} small={small} travellersVisible={travellersVisible}/>
     <group ref={group} rotation={[-.27,-.12,.14]}>
       <group ref={(node) => { if (node) objects.current.set('sun', node); else objects.current.delete('sun'); }}><FormationBody formation={formation}><Sun visited={visited} focus={focus} reducedMotion={reducedMotion} formation={formation}/></FormationBody></group>
       {worlds.map((world,index) => <group key={world.id}>
         <FormationBody formation={formation} grow={false}><WorldTrack index={index} focus={focus}/></FormationBody>
-        <WorldSystem world={world} index={index} focus={focus} onFocus={onFocus} onEnter={onEnter} reducedMotion={reducedMotion} objects={objects} visited={visited} labelPortal={labelPortal} small={small} formation={formation} formationId={formationId} opening={opening}/>
+        <WorldSystem world={world} index={index} focus={focus} onFocus={onFocus} onEnter={onEnter} reducedMotion={reducedMotion} objects={objects} visited={visited} labelPortal={labelPortal} small={small} formation={formation} formationId={formationId} opening={opening} forming={forming}/>
       </group>)}
       <FormationBody formation={formation} grow={false}>
         <Constellations onEnter={onEnter} focus={focus} objects={objects} labelPortal={labelPortal} formation={formation}/>
@@ -472,7 +499,7 @@ function Scene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, smal
 }
 
 export default function UniverseScene(props: SceneProps) {
-  if (props.small) return <Canvas style={{ touchAction: 'pan-y pinch-zoom' }} camera={{ position: [0,-.22,10], fov: 42, near: .03, far: 260 }} dpr={[1,1.2]} frameloop={props.reducedMotion?'demand':'always'} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }} fallback={<div className="scene-loading"><span>Explore with the universe map</span></div>}>
+  if (props.small) return <Canvas style={{ touchAction: 'none' }} camera={{ position: [0,-.22,10], fov: 42, near: .03, far: 260 }} dpr={[1,1.2]} frameloop={props.reducedMotion?'demand':'always'} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }} fallback={<div className="scene-loading"><span>Explore with the universe map</span></div>}>
     <CompactScene {...props}/>
   </Canvas>;
   const aspect = typeof window === 'undefined' ? 1.5 : window.innerWidth / Math.max(window.innerHeight,1);

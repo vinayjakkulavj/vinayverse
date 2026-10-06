@@ -16,7 +16,7 @@ type EntryGateProps = {
 const DRAG_DISTANCE = 96;
 const OPEN_THRESHOLD = 0.6;
 const DRAG_REVEAL_LIMIT = 0.44;
-const REVEAL_DURATION = 1.25;
+const REVEAL_DURATION = 0.9;
 const TITLE_LINES = ["DO YOU", "KNOW ME?"];
 
 export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginEnter }: EntryGateProps) {
@@ -32,6 +32,7 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
   const completedRef = useRef(false);
   const enteredCallbackRef = useRef(false);
   const pointerRef = useRef<number | null>(null);
+  const captureRef = useRef<HTMLElement | null>(null);
   const originRef = useRef(0);
   const revealRef = useRef({ progress: 0, handleY: 0, pull: 0 });
   const apertureRef = useRef({ x: 0, y: 0, maxRadius: 1 });
@@ -100,9 +101,10 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
   const releasePointer = useCallback(() => {
     const pointer = pointerRef.current;
     pointerRef.current = null;
-    const handle = handleRef.current;
-    if (handle && pointer !== null && handle.hasPointerCapture(pointer)) {
-      handle.releasePointerCapture(pointer);
+    const capture = captureRef.current;
+    captureRef.current = null;
+    if (capture && pointer !== null && capture.hasPointerCapture(pointer)) {
+      capture.releasePointerCapture(pointer);
     }
     setDragging(false);
   }, []);
@@ -197,38 +199,65 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
     }
   }, [finishReducedMotion, reducedMotion, renderReveal]);
 
-  const startDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!titleReadyRef.current || completedRef.current || pointerRef.current !== null || event.button !== 0) return;
+  const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!titleReadyRef.current || completedRef.current || pointerRef.current !== null || !event.isPrimary || event.button !== 0) return;
     event.preventDefault();
     resetRef.current?.kill();
     measureAperture();
     pointerRef.current = event.pointerId;
     originRef.current = event.clientY - revealRef.current.handleY;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    captureRef.current = event.currentTarget;
+    // Keep the capture surface still while the handle moves. Window listeners
+    // also finish a pull if capture is unavailable or the release leaves it.
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Window listeners remain active. */ }
     setDragging(true);
   };
 
-  const moveDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (pointerRef.current !== event.pointerId || completedRef.current) return;
-    event.preventDefault();
-    const distance = Math.max(0, event.clientY - originRef.current);
+  const updateDragPosition = useCallback((clientY: number) => {
+    const distance = Math.max(0, clientY - originRef.current);
     revealRef.current.handleY = distance;
     revealRef.current.pull = Math.min(1, distance / DRAG_DISTANCE);
     revealRef.current.progress = revealRef.current.pull * DRAG_REVEAL_LIMIT;
     renderReveal();
-  };
+  }, [renderReveal]);
 
-  const finishDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const finishDrag = useCallback((event: PointerEvent) => {
     if (pointerRef.current !== event.pointerId) return;
+    // Fast drags can deliver the last coordinate only on pointerup.
+    updateDragPosition(event.clientY);
     releasePointer();
     if (revealRef.current.pull >= OPEN_THRESHOLD) enter();
     else resetDrag();
-  };
+  }, [enter, releasePointer, resetDrag, updateDragPosition]);
 
-  const cancelDrag = () => {
+  const cancelDrag = useCallback(() => {
     releasePointer();
     resetDrag();
-  };
+  }, [releasePointer, resetDrag]);
+
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      if (pointerRef.current !== event.pointerId || completedRef.current) return;
+      if (event.cancelable) event.preventDefault();
+      updateDragPosition(event.clientY);
+    };
+    const cancel = (event: PointerEvent) => {
+      if (pointerRef.current === event.pointerId) cancelDrag();
+    };
+    const blur = () => {
+      if (pointerRef.current !== null) cancelDrag();
+    };
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", finishDrag);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finishDrag);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("blur", blur);
+    };
+  }, [cancelDrag, finishDrag, updateDragPosition]);
 
   return (
     <section
@@ -259,7 +288,13 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
           <div className={styles.entryCoordinates} aria-hidden="true">ENGINEER. BUILDER. CURIOUS HUMAN.</div>
         </div>
         <div ref={controlsRef} className={styles.entryControls} aria-hidden={!titleReady}>
-          <div className={styles.dragZone}>
+          <div
+            className={styles.dragZone}
+            onPointerDown={startDrag}
+            onLostPointerCapture={(event) => {
+              if (pointerRef.current === event.pointerId) cancelDrag();
+            }}
+          >
             <div className={styles.dragTrack} aria-hidden="true" />
             <span className={styles.dragDestination} aria-hidden="true" />
             <button
@@ -268,13 +303,6 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
               type="button"
               disabled={!titleReady || entering}
               aria-label="Drag down and release to reveal the universe, or press Enter"
-              onPointerDown={startDrag}
-              onPointerMove={moveDrag}
-              onPointerUp={finishDrag}
-              onPointerCancel={cancelDrag}
-              onLostPointerCapture={() => {
-                if (pointerRef.current !== null) cancelDrag();
-              }}
               onClick={(event) => {
                 if (event.detail === 0) enter();
               }}

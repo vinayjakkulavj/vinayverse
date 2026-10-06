@@ -189,9 +189,10 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .compact-universe .universe-heading { position: relative; top: auto; left: auto; padding: 0 22px; }
   .compact-universe .universe-heading h1 { margin: 0; font-size: 10px; }
   .compact-universe .universe-heading p { display: block; max-width: none; font-size: 13px; margin-top: 7px; }
-  .compact-universe .universe-stage { position: relative; inset: auto; width: 100%; height: clamp(300px, 78vw, 380px); margin-top: 8px; overflow: hidden; isolation: isolate; touch-action: pan-y pinch-zoom; cursor: auto; }
+  .compact-universe .universe-stage { position: relative; inset: auto; width: 100%; height: clamp(300px, 78vw, 380px); margin-top: 8px; overflow: hidden; isolation: isolate; touch-action: none; overscroll-behavior: contain; cursor: grab; }
   .compact-universe[data-opening='true'] .universe-stage, .compact-universe[data-forming='true'] .universe-stage { position: fixed; top: var(--formation-stage-top, 0px); left: 0; width: 100%; height: var(--formation-stage-height, 100dvh); margin-top: 0; }
-  .compact-universe .universe-stage canvas { touch-action: pan-y pinch-zoom; }
+  .compact-universe .universe-stage canvas { touch-action: none; }
+  .compact-universe .universe-stage.is-dragging { cursor: grabbing; }
   .compact-universe .sun-label strong { font-size: 14px; font-weight: 450; letter-spacing: .08em; padding-left: .08em; }
   .compact-universe .sun-label span, .compact-universe .sun-label em { display: none; }
   .compact-universe .compact-planet-label { min-width: 104px; min-height: 44px; padding: 10px 4px; border-radius: 8px; }
