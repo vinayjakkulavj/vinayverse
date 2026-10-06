@@ -10,6 +10,7 @@ type FormationProps = {
   targets: MutableRefObject<Map<string, Group>>;
   small: boolean;
   reducedMotion: boolean;
+  preview?: boolean;
 };
 
 const targetKeys = ['sun', 'professional', 'know-me', 'project-pandora'];
@@ -18,10 +19,14 @@ const accentColors = ['#f1c184', '#b48cf0', '#79cbed', '#ef896d', '#71dac8'];
 
 const vertexShader = /* glsl */ `
   attribute vec4 aFlow;
+  attribute float aLane;
   attribute vec3 aSphere;
   attribute vec3 aTint;
   attribute vec3 aPlanetColor;
   uniform float uProgress;
+  uniform float uClock;
+  uniform float uPreview;
+  uniform float uLaneCount;
   uniform float uDpr;
   uniform float uPointScale;
   uniform vec3 uTargets[4];
@@ -53,15 +58,18 @@ const vertexShader = /* glsl */ `
   }
 
   vec3 ribbon(float phase, float clock) {
-    float wave = phase * TAU + clock * 2.3;
-    float width = .15 + .14 * pow(sin(phase * PI), 2.0);
-    float strand = aFlow.z * TAU + wave * 1.7;
+    float lane = (aLane + .5) / uLaneCount * 2.0 - 1.0;
+    float wave = phase * PI * 1.65 + aLane * 1.21 + clock * .075;
+    float width = .07 + .06 * pow(sin(phase * PI), 2.0);
+    float strand = aFlow.z * TAU + wave * .8;
     float crossSection = sqrt(aFlow.y) * width;
-    float x = (phase * 2.0 - 1.0) * uSpan.x;
-    float y = sin(wave) * uSpan.y * .25
-      + sin(phase * PI) * uSpan.y * .18;
-    float z = cos(wave + .7) * uSpan.z;
-    // Every particle shares one winding ribbon, with a soft, circular depth.
+    float across = phase * 2.0 - 1.0;
+    float x = across * uSpan.x;
+    float diagonal = sin(aLane * 1.71 + .2) * .14;
+    float y = (lane * .86 + across * diagonal + sin(wave) * .095
+      + cos(phase * PI * 3.0 + aLane) * .026) * uSpan.y;
+    float z = (cos(wave * .65 + aLane) + lane * .3) * uSpan.z;
+    // Nine graceful ribbons share a slow current across the full viewport.
     return uTargets[0]
       + uRight * (x + cos(strand) * crossSection * .3)
       + uUp * (y + cos(strand) * crossSection)
@@ -75,16 +83,16 @@ const vertexShader = /* glsl */ `
 
   void main() {
     float p = clamp(uProgress, 0.0, 1.0);
-    float phase = fract(aFlow.x + p * .56);
-    float gather = smoothstep(.48, .89, p - aFlow.y * .035);
-    float settle = smoothstep(.69, .96, p);
+    float phase = fract(aFlow.x + uClock * .035);
+    float gather = smoothstep(.55, .9, p - aFlow.y * .025) * (1.0 - uPreview);
+    float settle = smoothstep(.75, .97, p) * (1.0 - uPreview);
     float bucket = aFlow.w;
     float orbitAngle = p * 1.5 + aFlow.z * .35;
     mat2 spin = mat2(cos(orbitAngle), -sin(orbitAngle), sin(orbitAngle), cos(orbitAngle));
     vec3 sphere = aSphere;
     sphere.xz = spin * sphere.xz;
 
-    vec3 start = ribbon(phase, p);
+    vec3 start = ribbon(phase, uClock);
     vec3 target = destination(bucket);
     float shell = radius(bucket) * (1.0 + (1.0 - settle) * 1.7);
     vec3 surface = target + sphere * shell;
@@ -100,19 +108,19 @@ const vertexShader = /* glsl */ `
     gl_Position = clipPosition;
 
     // A short, directional light trace follows the same ribbon and assembly path.
-    vec3 ahead = cubic(ribbon(fract(phase + .005), p), firstControl, secondControl, surface, gather);
+    vec3 ahead = cubic(ribbon(fract(phase + .005), uClock), firstControl, secondControl, surface, gather);
     vec4 nextClip = projectionMatrix * viewMatrix * vec4(ahead, 1.0);
     vec2 direction = nextClip.xy / nextClip.w - clipPosition.xy / clipPosition.w;
     vAngle = dot(direction, direction) > .000000000001 ? atan(direction.y, direction.x) : 0.0;
-    vStretch = mix(2.3, 1.0, settle);
-    vColor = mix(aTint, aPlanetColor, smoothstep(.48, .9, p));
+    vStretch = mix(1.85, 1.0, settle);
+    vColor = mix(aTint, aPlanetColor, smoothstep(.58, .91, p) * (1.0 - uPreview));
 
     float edge = smoothstep(0.0, .08, phase) * (1.0 - smoothstep(.92, 1.0, phase));
-    float rise = smoothstep(0.0, .055, p);
-    float dissolve = 1.0 - smoothstep(.83, 1.0, p);
-    vAlpha = rise * dissolve * mix(edge, 1.0, gather) * (.44 + aFlow.z * .36);
+    // Preview and release share the same clock and brightness, avoiding a restart.
+    float dissolve = mix(1.0 - smoothstep(.92, 1.0, p), 1.0, uPreview);
+    vAlpha = dissolve * mix(edge, 1.0, gather) * (.68 + aFlow.z * .32);
     float perspective = clamp(14.0 / max(-viewPosition.z, 1.0), .65, 2.15);
-    gl_PointSize = (3.0 + aFlow.y * 3.2) * uDpr * uPointScale * perspective;
+    gl_PointSize = (3.2 + aFlow.y * 2.2) * uDpr * uPointScale * perspective;
   }
 `;
 
@@ -131,20 +139,22 @@ const fragmentShader = /* glsl */ `
     float core = exp(-radius * radius * 65.0);
     float halo = exp(-radius * radius * 15.0);
     float edge = 1.0 - smoothstep(.36, .5, radius);
-    gl_FragColor = vec4(vColor * (1.45 + core * .8), (core * .72 + halo * .4) * edge * vAlpha);
+    gl_FragColor = vec4(vColor * (1.0 + core * .3), (core * .95 + halo * .52) * edge * vAlpha);
     #include <colorspace_fragment>
   }
 `;
 
-/** A single GPU draw turns the entry ribbon into the four existing spheres. */
-export default function UniverseFormation({ progress, targets, small, reducedMotion }: FormationProps) {
+/** One GPU draw carries the preview ribbons into the four existing spheres. */
+export default function UniverseFormation({ progress, targets, small, reducedMotion, preview = false }: FormationProps) {
   const cloud = useRef<Points>(null);
   const material = useRef<ShaderMaterial>(null);
+  const clock = useRef(0);
   const { camera, gl, viewport } = useThree();
   const particles = useMemo(() => {
-    const count = small ? 3500 : 9000;
+    const count = small ? 4000 : 11000;
     const positions = new Float32Array(count * 3);
     const flow = new Float32Array(count * 4);
+    const lane = new Float32Array(count);
     const sphere = new Float32Array(count * 3);
     const tint = new Float32Array(count * 3);
     const planetColor = new Float32Array(count * 3);
@@ -162,6 +172,7 @@ export default function UniverseFormation({ progress, targets, small, reducedMot
       const proportion = index / count;
       const bucket = proportion < .3 ? 0 : proportion < .535 ? 1 : proportion < .77 ? 2 : 3;
       flow.set([random(), random(), random(), bucket], index * 4);
+      lane[index] = index % 9;
       const height = random() * 2 - 1;
       const angle = random() * Math.PI * 2;
       const horizontal = Math.sqrt(1 - height * height);
@@ -170,13 +181,16 @@ export default function UniverseFormation({ progress, targets, small, reducedMot
       shade.toArray(tint, index * 3);
       palette[bucket].toArray(planetColor, index * 3);
     }
-    return { count, positions, flow, sphere, tint, planetColor };
+    return { count, positions, flow, lane, sphere, tint, planetColor };
   }, [small]);
 
   const uniforms = useMemo(() => ({
     uProgress: { value: 0 },
+    uClock: { value: 0 },
+    uPreview: { value: 0 },
+    uLaneCount: { value: 9 },
     uDpr: { value: 1 },
-    uPointScale: { value: small ? .65 : 1 },
+    uPointScale: { value: small ? .9 : 1 },
     uTargets: { value: [new Vector3(), new Vector3(), new Vector3(), new Vector3()] },
     uRadii: { value: small ? [.67, .48, .46, .53] : [.9, .5, .52, .57] },
     uRight: { value: new Vector3(1, 0, 0) },
@@ -185,14 +199,17 @@ export default function UniverseFormation({ progress, targets, small, reducedMot
     uSpan: { value: new Vector3(8, 4, 1) },
   }), [small]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!cloud.current || !material.current) return;
-    const active = !reducedMotion && progress.current > 0 && progress.current < 1;
+    const active = !reducedMotion && (preview || progress.current >= 0 && progress.current < 1);
     cloud.current.visible = active;
     if (!active) return;
     // The material owns the live uniform objects after R3F applies its props.
     const live = material.current.uniforms;
+    clock.current += Math.min(delta, .1);
     live.uProgress.value = progress.current;
+    live.uClock.value = clock.current;
+    live.uPreview.value = preview ? 1 : 0;
     live.uDpr.value = Math.min(gl.getPixelRatio(), 2);
     for (let index = 0; index < targetKeys.length; index++) {
       const group = targets.current.get(targetKeys[index]);
@@ -206,7 +223,7 @@ export default function UniverseFormation({ progress, targets, small, reducedMot
     live.uUp.value.setFromMatrixColumn(camera.matrixWorld, 1);
     live.uForward.value.setFromMatrixColumn(camera.matrixWorld, 2);
     const view = viewport.getCurrentViewport(camera, live.uTargets.value[0]);
-    live.uSpan.value.set(view.width * .55, view.height * .45, small ? .65 : 1.15);
+    live.uSpan.value.set(view.width * .55, view.height * .49, small ? .65 : 1.15);
     material.current.uniformsNeedUpdate = true;
   });
 
@@ -216,6 +233,7 @@ export default function UniverseFormation({ progress, targets, small, reducedMot
     <bufferGeometry>
       <bufferAttribute attach="attributes-position" args={[particles.positions, 3]}/>
       <bufferAttribute attach="attributes-aFlow" args={[particles.flow, 4]}/>
+      <bufferAttribute attach="attributes-aLane" args={[particles.lane, 1]}/>
       <bufferAttribute attach="attributes-aSphere" args={[particles.sphere, 3]}/>
       <bufferAttribute attach="attributes-aTint" args={[particles.tint, 3]}/>
       <bufferAttribute attach="attributes-aPlanetColor" args={[particles.planetColor, 3]}/>

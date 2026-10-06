@@ -25,6 +25,7 @@ type SceneProps = {
   formationId: number;
   onFormationComplete: () => void;
   flightProgress: MutableRefObject<number>;
+  opening: boolean;
 };
 type ObjectMap = MutableRefObject<Map<string, Group>>;
 type FormationProgress = MutableRefObject<number>;
@@ -35,32 +36,38 @@ function smootherstep(value: number) {
 }
 
 function formationReveal(progress: FormationProgress) {
-  return smootherstep((progress.current - .75) / .23);
+  return smootherstep((progress.current - .86) / .14);
 }
 
 // A single frame clock keeps the travelling particles and solid spheres together.
-function useFormation(formationId: number, onComplete: () => void, reducedMotion: boolean) {
-  const progress = useRef(formationId > 0 ? 0 : 1);
+function useFormation(formationId: number, onComplete: () => void, reducedMotion: boolean, opening: boolean) {
+  const progress = useRef(reducedMotion ? 1 : formationId > 0 ? 0 : opening ? .14 : 1);
   const elapsed = useRef(0);
   const pending = useRef(false);
+  const activeId = useRef(0);
   const complete = useRef(onComplete);
   complete.current = onComplete;
   useLayoutEffect(() => {
     if (formationId <= 0) {
-      progress.current = 1;
+      progress.current = reducedMotion ? 1 : opening ? .14 : 1;
       pending.current = false;
       elapsed.current = 0;
+      activeId.current = 0;
       return;
     }
+    // Removing the gate during the running formation must keep its clock.
+    if (activeId.current === formationId && !reducedMotion) return;
+    const alreadyComplete = activeId.current === formationId && !pending.current && progress.current === 1;
+    activeId.current = formationId;
     elapsed.current = 0;
     progress.current = reducedMotion ? 1 : 0;
     pending.current = !reducedMotion;
-    if (reducedMotion) complete.current();
-  }, [formationId, reducedMotion]);
+    if (reducedMotion && !alreadyComplete) complete.current();
+  }, [formationId, reducedMotion, opening]);
   useFrame((_, delta) => {
     if (!pending.current) return;
     elapsed.current += Math.min(delta, .1);
-    progress.current = Math.min(1, elapsed.current / 3.2);
+    progress.current = Math.min(1, elapsed.current / 5.8);
     if (progress.current === 1) {
       pending.current = false;
       complete.current();
@@ -90,7 +97,7 @@ function FormationBody({ formation, children, grow = true }: { formation: Format
     });
     restoring.current = formation.current < 1;
   });
-  return <group ref={group} visible={formation.current >= .75}>{children}</group>;
+  return <group ref={group} visible={formation.current >= .86}>{children}</group>;
 }
 
 type FormationLabelProps = Omit<ComponentProps<typeof Html>, 'children'> & { formation: FormationProgress; children: ReactNode };
@@ -100,7 +107,7 @@ function FormationLabel({ formation, children, ...htmlProps }: FormationLabelPro
   const previous = useRef('');
   useFrame(() => {
     if (!node.current) return;
-    const amount = smootherstep((formation.current - .9) / .1);
+    const amount = smootherstep((formation.current - .95) / .05);
     const opacity = amount.toFixed(3);
     if (previous.current === opacity) return;
     node.current.style.opacity = opacity;
@@ -116,9 +123,10 @@ const formingPlanetFragment = planetFragment
   .replace('vec4(color*uBrightness,1.0)', 'vec4(color*uBrightness,uReveal)');
 
 const orbital = [
-  { radius: 3.35, height: .68, depth: .45, node: -.06, phase: 3.48, speed: .027 },
-  { radius: 4.75, height: .72, depth: -.7, node: .08, phase: 1.53, speed: .018 },
-  { radius: 6.25, height: .74, depth: 1.05, node: -.035, phase: 6.10, speed: .012 },
+  // The canonical formation ends as lower-left / upper-left / right stations.
+  { radius: 3.35, height: .68, depth: .45, node: -.06, phase: 4.16, speed: .027 },
+  { radius: 4.75, height: .72, depth: -.7, node: .08, phase: 2.10, speed: .018 },
+  { radius: 6.25, height: .74, depth: 1.05, node: -.035, phase: .02, speed: .012 },
 ];
 const orbitSamplers = orbital.map(createOrbitSampler);
 
@@ -192,7 +200,7 @@ function Moon({ slug, color, kind, index, count, active, reducedMotion, onEnter,
       const target = active ? formationReveal(formation) : 0;
       const scale = reducedMotion ? target : body.current.scale.x + (target-body.current.scale.x)*damping(6,delta);
       body.current.scale.setScalar(scale);
-      body.current.visible = active && scale > .001;
+      body.current.visible = formation.current >= .86 && active && scale > .001;
     }
   }, -1);
   // Keep the orbit anchor and HTML label at full scale from their first render.
@@ -207,7 +215,7 @@ function Moon({ slug, color, kind, index, count, active, reducedMotion, onEnter,
   </group>;
 }
 
-function WorldSystem({ world, index, focus, onFocus, onEnter, reducedMotion, objects, visited, labelPortal, small, formation }: { world: World; index: number; focus: WorldId | null; onFocus: SceneProps['onFocus']; onEnter: SceneProps['onEnter']; reducedMotion: boolean; objects: ObjectMap; visited: string[]; labelPortal: RefObject<HTMLElement>; small: boolean; formation: FormationProgress }) {
+function WorldSystem({ world, index, focus, onFocus, onEnter, reducedMotion, objects, visited, labelPortal, small, formation, formationId, opening }: { world: World; index: number; focus: WorldId | null; onFocus: SceneProps['onFocus']; onEnter: SceneProps['onEnter']; reducedMotion: boolean; objects: ObjectMap; visited: string[]; labelPortal: RefObject<HTMLElement>; small: boolean; formation: FormationProgress; formationId: number; opening: boolean }) {
   const group = useRef<Group>(null);
   const phase = useRef(orbital[index].phase);
   const [hover, setHover] = useState(false);
@@ -216,9 +224,15 @@ function WorldSystem({ world, index, focus, onFocus, onEnter, reducedMotion, obj
   const radius = index===0 ? .5 : index===1 ? .52 : .57;
   const initialPosition = useMemo(()=>orbitSamplers[index](new Vector3(),orbital[index].phase),[index]);
   useEffect(() => { if (group.current) objects.current.set(world.slug, group.current); return () => { objects.current.delete(world.slug); }; }, [world.slug, objects]);
+  useLayoutEffect(() => {
+    if (!opening && formationId === 0) return;
+    phase.current = orbital[index].phase;
+    if (group.current) orbitSamplers[index](group.current.position, phase.current);
+  }, [index, opening, formationId]);
   useFrame((_, delta) => {
     if (!group.current) return;
-    if (!reducedMotion) phase.current += delta*orbital[index].speed;
+    if (formation.current < 1) phase.current = orbital[index].phase;
+    else if (!reducedMotion) phase.current += delta*orbital[index].speed;
     orbitSamplers[index](group.current.position,phase.current);
   }, -1);
   const choose = () => { if (formation.current === 1) { if (active) onEnter(world.slug); else onFocus(world.id); } };
@@ -360,7 +374,7 @@ function SunLabel({ sunLabel, objects, small, focus, formation, destination }: {
     point.project(camera);
     const transform = `translate3d(${((point.x*.5+.5)*size.width).toFixed(2)}px,${((-point.y*.5+.5)*size.height).toFixed(2)}px,0) translate(-50%,-50%)`;
     const opacity = (formationReveal(formation) * (focus && !small ? .5 : 1)).toFixed(3);
-    const visibility = destination || formation.current < .9 || point.z > 1 || point.z < -1 ? 'hidden' : 'visible';
+    const visibility = destination || formation.current < .95 || point.z > 1 || point.z < -1 ? 'hidden' : 'visible';
     const replaced = previous.current.node !== label;
     if (replaced || previous.current.transform !== transform) label.style.transform = transform;
     if (replaced || previous.current.opacity !== opacity) label.style.opacity = opacity;
@@ -400,10 +414,10 @@ function CompactWorld({ world, index, selected, onFocus, onEnter, reducedMotion,
   </group>;
 }
 
-function CompactScene({ focus, onFocus, onEnter, reducedMotion, visited, sunLabel, labelPortal, formationId, onFormationComplete, destination, flightProgress }: SceneProps) {
+function CompactScene({ focus, onFocus, onEnter, reducedMotion, visited, sunLabel, labelPortal, formationId, onFormationComplete, destination, flightProgress, opening }: SceneProps) {
   const backdropRotation = useRef({ x: -.06, y: -.02 });
   const objects = useRef(new Map<string, Group>());
-  const formation = useFormation(formationId, onFormationComplete, reducedMotion);
+  const formation = useFormation(formationId, onFormationComplete, reducedMotion, opening);
   return <>
     <color attach="background" args={['#03050a']}/>
     <CameraRig objects={objects} small={true} destination={destination} reducedMotion={reducedMotion} flightProgress={flightProgress}/>
@@ -418,18 +432,18 @@ function CompactScene({ focus, onFocus, onEnter, reducedMotion, visited, sunLabe
       <FormationBody formation={formation}><Planet radius={.67} color="#bc4b2e" kind={0} dim={false} reducedMotion={reducedMotion} formation={formation} energy={Math.min(visited.length / 12, 1)}/></FormationBody>
     </group>
     {worlds.map((world,index) => <CompactWorld key={world.id} world={world} index={index} selected={focus === world.id} onFocus={onFocus} onEnter={onEnter} reducedMotion={reducedMotion} labelPortal={labelPortal} objects={objects} formation={formation}/>)}
-    <UniverseFormation progress={formation} targets={objects} small={true} reducedMotion={reducedMotion}/>
+    <UniverseFormation progress={formation} targets={objects} small={true} reducedMotion={reducedMotion} preview={opening && formationId === 0}/>
   </>;
 }
 
-function Scene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, small, destination, sunLabel, labelPortal, formationId, onFormationComplete, flightProgress }: SceneProps) {
+function Scene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, small, destination, sunLabel, labelPortal, formationId, onFormationComplete, flightProgress, opening }: SceneProps) {
   const group = useRef<Group>(null);
   const objects = useRef(new Map<string, Group>());
-  const formation = useFormation(formationId, onFormationComplete, reducedMotion);
+  const formation = useFormation(formationId, onFormationComplete, reducedMotion, opening);
   const { invalidate } = useThree();
   useEffect(() => { const refresh = () => invalidate(); window.addEventListener('douknowme-rotate', refresh); return () => window.removeEventListener('douknowme-rotate', refresh); }, [invalidate]);
-  // The modest axial tilt sits underneath the existing drag rotation. Orbit
-  // anchors keep advancing at their existing constant speeds during formation.
+  // The modest axial tilt sits underneath the existing drag rotation. Canonical
+  // orbit anchors remain still until formation ends, then resume constant speed.
   useFrame((_, delta) => {
     if (!group.current) return;
     const speed = reducedMotion ? 1 : damping(14, delta);
@@ -446,12 +460,14 @@ function Scene({ focus, onFocus, onEnter, rotation, reducedMotion, visited, smal
       <group ref={(node) => { if (node) objects.current.set('sun', node); else objects.current.delete('sun'); }}><FormationBody formation={formation}><Sun visited={visited} focus={focus} reducedMotion={reducedMotion} formation={formation}/></FormationBody></group>
       {worlds.map((world,index) => <group key={world.id}>
         <FormationBody formation={formation} grow={false}><WorldTrack index={index} focus={focus}/></FormationBody>
-        <WorldSystem world={world} index={index} focus={focus} onFocus={onFocus} onEnter={onEnter} reducedMotion={reducedMotion} objects={objects} visited={visited} labelPortal={labelPortal} small={small} formation={formation}/>
+        <WorldSystem world={world} index={index} focus={focus} onFocus={onFocus} onEnter={onEnter} reducedMotion={reducedMotion} objects={objects} visited={visited} labelPortal={labelPortal} small={small} formation={formation} formationId={formationId} opening={opening}/>
       </group>)}
-      <Constellations onEnter={onEnter} focus={focus} objects={objects} labelPortal={labelPortal} formation={formation}/>
-      <DiscoveryTrail visited={visited}/>
+      <FormationBody formation={formation} grow={false}>
+        <Constellations onEnter={onEnter} focus={focus} objects={objects} labelPortal={labelPortal} formation={formation}/>
+        <DiscoveryTrail visited={visited}/>
+      </FormationBody>
     </group>
-    <UniverseFormation progress={formation} targets={objects} small={small} reducedMotion={reducedMotion}/>
+    <UniverseFormation progress={formation} targets={objects} small={small} reducedMotion={reducedMotion} preview={opening && formationId === 0}/>
   </>;
 }
 

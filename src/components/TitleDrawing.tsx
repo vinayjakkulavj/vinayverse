@@ -2,31 +2,15 @@
 
 import { gsap } from 'gsap';
 import { useEffect, useRef, type RefObject } from 'react';
-import { openingTitleFont, openingTitleGlyphs } from './OpeningTitleGlyphs';
 import styles from './ExperienceEffects.module.css';
 
-const CHARACTERS = Array.from('DO YOUKNOW ME?');
-const DRAW_DURATION = 4.3;
+const DRAW_DURATION = 5.4;
 const DRAW_START = .25;
-type Point = { x: number; y: number };
-type Trace = { kind: 'trace'; path: SVGPathElement; length: number; x: number; baseline: number; scale: number; start: number; end: number; weight: number };
-type Transfer = { kind: 'transfer'; from: Point; to: Point; lift: number; start: number; end: number; weight: number };
-type Step = Trace | Transfer;
-type Letter = { node: HTMLElement; paths: SVGPathElement[]; doneAt: number };
+const ROW_TRANSFER = .5;
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
-
-function tracePoint(step: Trace, progress: number): Point {
-  const point = step.path.getPointAtLength(step.length * clamp(progress));
-  return { x: step.x + point.x * step.scale, y: step.baseline + point.y * step.scale };
-}
-
-function transferPoint(step: Transfer, progress: number): Point {
-  const amount = progress * progress * (3 - 2 * progress);
-  return {
-    x: step.from.x + (step.to.x - step.from.x) * amount,
-    y: step.from.y + (step.to.y - step.from.y) * amount - Math.sin(progress * Math.PI) * step.lift,
-  };
-}
+type Point = { x: number; y: number };
+type Letter = { node: HTMLElement; left: number; width: number };
+type Row = { letters: Letter[]; top: number; height: number; from: Point; to: Point; start: number; end: number };
 
 export default function TitleDrawing({ titleRef, reducedMotion, onReady }: {
   titleRef: RefObject<HTMLHeadingElement | null>;
@@ -42,100 +26,119 @@ export default function TitleDrawing({ titleRef, reducedMotion, onReady }: {
     const title = titleRef.current, svg = drawing.current, ship = jet.current;
     if (!title || !svg || !ship) return;
     const letters = Array.from(title.querySelectorAll<HTMLElement>('[data-type-character]'));
+    const showTitle = () => {
+      for (const letter of letters) {
+        letter.style.opacity = '1';
+        letter.style.clipPath = 'none';
+      }
+    };
     if (reducedMotion || finished.current) {
-      gsap.set(letters, { opacity: 1 });
+      showTitle();
       gsap.set([svg, ship], { opacity: 0 });
       finished.current = true;
       onReady();
       return;
     }
 
-    const clock = { progress: 0 };
-    let steps: Step[] = [];
-    let glyphs: Letter[] = [];
-    let angle = 0;
+    const clock = { elapsed: 0, opacity: 0 };
+    let rows: Row[] = [];
     let noseX = 27.55, noseY = 16;
     let active = true;
+
     const measure = () => {
       const bounds = svg.getBoundingClientRect();
       noseX = ship.clientWidth * 31 / 36;
       noseY = ship.clientHeight / 2;
       svg.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`);
-      steps = []; glyphs = [];
-      let previous: Point | null = null;
-      let previousRow = 0;
-      for (let index = 0; index < letters.length; index++) {
-        const node = letters[index];
-        const outline = openingTitleGlyphs[node.textContent?.trim() ?? ''];
-        const group = svg.querySelector<SVGGElement>(`[data-drawing-glyph="${index}"]`);
-        if (!outline || !group) continue;
+      rows = [];
+      for (const node of letters) {
         const box = node.getBoundingClientRect();
-        const size = Number.parseFloat(getComputedStyle(node).fontSize);
-        const scale = size / openingTitleFont.unitsPerEm;
-        const x = box.left - bounds.left;
-        const baseline = box.top - bounds.top + (box.height - (openingTitleFont.ascent + openingTitleFont.descent) * scale) / 2 + openingTitleFont.ascent * scale;
-        group.setAttribute('transform', `translate(${x} ${baseline}) scale(${scale})`);
-        const paths = Array.from(group.querySelectorAll<SVGPathElement>('path'));
-        const lengths = paths.map((path) => path.getTotalLength());
-        const totalLength = lengths.reduce((sum, length) => sum + length, 0);
-        const letterWeight = .29 + Math.min(totalLength / 26000, .15);
-        for (let contour = 0; contour < paths.length; contour++) {
-          const path = paths[contour];
-          const trace: Trace = { kind: 'trace', path, length: lengths[contour], x, baseline, scale, start: 0, end: 0, weight: letterWeight * lengths[contour] / totalLength };
-          const start = tracePoint(trace, 0);
-          const newRow = !!previous && contour === 0 && Math.abs(box.top - previousRow) > box.height * .5;
-          const from = previous ?? { x: x - 35, y: baseline - openingTitleFont.capHeight * scale * .55 };
-          const distance = Math.hypot(start.x - from.x, start.y - from.y) / size;
-          steps.push({ kind: 'transfer', from, to: start, lift: newRow ? 22 : Math.min(distance * 3, 10), start: 0, end: 0, weight: !previous ? .14 : newRow ? .26 : .025 + Math.min(distance * .015, .055) });
-          steps.push(trace);
-          previous = tracePoint(trace, 1);
+        const left = box.left - bounds.left, top = box.top - bounds.top;
+        let row = rows.find((item) => Math.abs(item.top - top) < box.height * .4);
+        if (!row) {
+          // A quiet horizontal flight reveals each line at the spacecraft's nose.
+          // Measuring the real HTML keeps the reveal aligned with responsive type.
+          row = { letters: [], top, height: box.height, from: { x: left - 12, y: top + box.height * .48 }, to: { x: left + box.width + 16, y: top + box.height * .48 }, start: 0, end: 0 };
+          rows.push(row);
         }
-        previousRow = box.top;
-        glyphs.push({ node, paths, doneAt: steps.length - 1 });
+        row.letters.push({ node, left, width: Math.max(1, box.width) });
+        row.to.x = Math.max(row.to.x, left + box.width + 16);
       }
-      if (previous) steps.push({ kind: 'transfer', from: previous, to: { x: previous.x + 36, y: previous.y - 12 }, lift: 4, start: 0, end: 0, weight: .18 });
-      const totalWeight = steps.reduce((sum, step) => sum + step.weight, 0);
+      const sweepDuration = DRAW_DURATION - ROW_TRANSFER * Math.max(0, rows.length - 1);
+      const totalWidth = rows.reduce((sum, row) => sum + row.to.x - row.from.x, 0);
       let cursor = 0;
-      steps.forEach((step) => { step.start = cursor / totalWeight; cursor += step.weight; step.end = cursor / totalWeight; });
-      glyphs.forEach((glyph) => { glyph.doneAt = steps[glyph.doneAt].end; });
+      for (const row of rows) {
+        row.start = cursor;
+        row.end = cursor + sweepDuration * (row.to.x - row.from.x) / Math.max(1, totalWidth);
+        cursor = row.end + ROW_TRANSFER;
+      }
     };
 
     const render = () => {
-      if (!steps.length) return;
-      const progress = clock.progress;
-      const step = steps.find((item) => progress <= item.end) ?? steps[steps.length - 1];
-      const local = clamp((progress - step.start) / (step.end - step.start));
-      const pointAt = (value: number) => step.kind === 'trace' ? tracePoint(step, value) : transferPoint(step, clamp(value));
-      const position = pointAt(local);
-      const before = pointAt(Math.max(0, local - .006));
-      const after = pointAt(Math.min(1, local + .006));
-      const heading = Math.atan2(after.y - before.y, after.x - before.x) * 180 / Math.PI;
-      angle += ((heading - angle + 540) % 360 - 180) * .5;
-      // The spacecraft's nose sits on the live stroke, leaving the letter behind it.
-      ship.style.transform = `translate3d(${position.x}px, ${position.y}px, 0) rotate(${angle}deg) translate(-${noseX}px, -${noseY}px)`;
-      tip.current?.setAttribute('cx', String(position.x));
-      tip.current?.setAttribute('cy', String(position.y));
-      tip.current?.style.setProperty('opacity', step.kind === 'trace' ? '1' : '.2');
-      for (const item of steps) {
-        if (item.kind !== 'trace') continue;
-        item.path.style.strokeDashoffset = String(1 - clamp((progress - item.start) / (item.end - item.start)));
+      if (!rows.length) return;
+      if (finished.current) {
+        showTitle();
+        ship.style.opacity = '0';
+        svg.style.opacity = '0';
+        return;
       }
-      for (const glyph of glyphs) {
-        const fill = clamp((progress - glyph.doneAt) / .025);
-        glyph.node.style.opacity = String(fill);
-        for (const path of glyph.paths) path.style.opacity = String(.9 * (1 - fill));
+      const elapsed = clock.elapsed;
+      let point = rows[0].from;
+      let shipOpacity = clock.opacity;
+      let tipOpacity = .72;
+      let angle = 0;
+
+      for (let index = 0; index < rows.length; index++) {
+        const row = rows[index];
+        const amount = clamp((elapsed - row.start) / Math.max(.001, row.end - row.start));
+        const x = row.from.x + (row.to.x - row.from.x) * amount;
+        for (const letter of row.letters) {
+          const visible = clamp((x - letter.left) / letter.width);
+          letter.node.style.opacity = '1';
+          letter.node.style.clipPath = visible <= 0 ? 'inset(0 100% 0 0)' : visible >= 1 ? 'none' : `inset(-12% ${(1 - visible) * 100}% -12% -8%)`;
+        }
+        if (elapsed >= row.start && elapsed <= row.end) {
+          point = { x, y: row.from.y + Math.sin(amount * Math.PI) * 1.5 };
+        } else if (elapsed > row.end && index < rows.length - 1 && elapsed < rows[index + 1].start) {
+          const next = rows[index + 1];
+          const transfer = clamp((elapsed - row.end) / ROW_TRANSFER);
+          // Fade at the edge and return at the next line's start. A hidden middle
+          // avoids a fast, distracting flight back across already written text.
+          if (transfer < .25) {
+            const departure = transfer / .25;
+            point = { x: row.to.x + departure * 9, y: row.to.y - departure * 2 };
+            shipOpacity *= 1 - departure;
+            angle = -5;
+          } else if (transfer > .75) {
+            const arrival = (transfer - .75) / .25;
+            point = { x: next.from.x - (1 - arrival) * 9, y: next.from.y };
+            shipOpacity *= arrival;
+          } else {
+            point = next.from;
+            shipOpacity = 0;
+          }
+          tipOpacity = 0;
+        } else if (index === rows.length - 1 && elapsed >= row.end) {
+          point = row.to;
+          tipOpacity = 0;
+        }
       }
+      ship.style.transform = `translate3d(${point.x}px, ${point.y}px, 0) rotate(${angle}deg) translate(-${noseX}px, -${noseY}px)`;
+      ship.style.opacity = String(shipOpacity);
+      svg.style.opacity = String(clock.opacity);
+      tip.current?.setAttribute('cx', String(point.x));
+      tip.current?.setAttribute('cy', String(point.y));
+      tip.current?.style.setProperty('opacity', String(tipOpacity));
     };
 
-    gsap.set(letters, { opacity: 0 });
     ship.style.transformOrigin = '0 0';
     measure(); render();
     const sequence = gsap.timeline()
-      .to(ship, { opacity: 1, duration: .18 }, .08)
-      .to(clock, { progress: 1, duration: DRAW_DURATION, ease: 'none', onUpdate: render }, DRAW_START)
-      .set(letters, { opacity: 1 }, DRAW_START + DRAW_DURATION)
-      .to([ship, svg], { opacity: 0, duration: .28, ease: 'power1.out' }, DRAW_START + DRAW_DURATION)
-      .call(() => { finished.current = true; onReady(); }, [], DRAW_START + DRAW_DURATION + .4);
+      .to(clock, { opacity: 1, duration: .18, ease: 'power1.out', onUpdate: render }, .08)
+      .to(clock, { elapsed: DRAW_DURATION, duration: DRAW_DURATION, ease: 'none', onUpdate: render }, DRAW_START)
+      .call(showTitle, [], DRAW_START + DRAW_DURATION)
+      .to(clock, { opacity: 0, duration: .22, ease: 'power1.out', onUpdate: render }, DRAW_START + DRAW_DURATION)
+      .call(() => { finished.current = true; onReady(); }, [], 5.9);
     const update = () => { measure(); render(); };
     const observer = new ResizeObserver(update);
     observer.observe(title);
@@ -146,10 +149,7 @@ export default function TitleDrawing({ titleRef, reducedMotion, onReady }: {
 
   return <>
     <svg ref={drawing} className={styles.titleTrajectory} preserveAspectRatio="none" aria-hidden="true">
-      {CHARACTERS.map((character, index) => <g key={index} data-drawing-glyph={index}>
-        {openingTitleGlyphs[character]?.contours.map((path, contour) => <path key={contour} d={path} pathLength="1" strokeDasharray="1" strokeDashoffset="1" fill="none" vectorEffect="non-scaling-stroke"/>)}
-      </g>)}
-      <circle ref={tip} className={styles.drawingTip} r="1.5"/>
+      <circle ref={tip} className={styles.drawingTip} r="1.25"/>
     </svg>
     <div ref={jet} className={styles.titleShip} aria-hidden="true">
       <span className={styles.titleShipExhaust}/>

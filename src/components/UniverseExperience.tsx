@@ -79,24 +79,54 @@ export default function UniverseExperience() {
   const flightProgress = useRef(0);
   const flightTween = useRef<gsap.core.Tween | null>(null);
   const formationTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settleTween = useRef<gsap.core.Tween | null>(null);
 
-  const finishFormation = useCallback(() => {
+  const finishFormation = useCallback((immediate = false) => {
     if (formationTimeout.current) clearTimeout(formationTimeout.current);
     formationTimeout.current = null;
-    setForming(false);
     setFormationId(0);
-  }, []);
+    settleTween.current?.kill();
+    const unlock = () => {
+      settleTween.current = null;
+      setForming(false);
+      main.current?.style.removeProperty('--formation-stage-top');
+      main.current?.style.removeProperty('--formation-stage-height');
+    };
+    const titleBlock = heading.current?.parentElement;
+    if (immediate || !small || reducedMotion || sceneFailed || !main.current || !titleBlock) { unlock(); return; }
+    // Keep the phone canvas full-screen for the particle sequence, then move it
+    // continuously into its normal compact position before revealing controls.
+    const geometry = { top: 0, height: window.innerHeight };
+    settleTween.current = gsap.to(geometry, {
+      top: main.current.getBoundingClientRect().top + titleBlock.offsetTop + titleBlock.offsetHeight + 8,
+      height: Math.max(300, Math.min(380, window.innerWidth * .78)),
+      duration: .85,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        main.current?.style.setProperty('--formation-stage-top', `${geometry.top}px`);
+        main.current?.style.setProperty('--formation-stage-height', `${geometry.height}px`);
+      },
+      onComplete: unlock,
+    });
+  }, [small, reducedMotion, sceneFailed]);
   const beginOpening = useCallback(() => {
     if (reducedMotion || sceneFailed) return;
+    settleTween.current?.kill();
+    main.current?.style.removeProperty('--formation-stage-top');
+    main.current?.style.removeProperty('--formation-stage-height');
+    rotation.current = { x: -.19, y: -.12 };
+    inertia.current = { x: 0, y: 0 };
+    setFocus(null);
     setForming(true);
     setFormationId((previous) => previous + 1);
     if (formationTimeout.current) clearTimeout(formationTimeout.current);
-    formationTimeout.current = setTimeout(finishFormation, 4300);
+    formationTimeout.current = setTimeout(() => finishFormation(true), 8500);
   }, [reducedMotion, sceneFailed, finishFormation]);
-  const failScene = useCallback(() => { setSceneFailed(true); finishFormation(); }, [finishFormation]);
+  const failScene = useCallback(() => { setSceneFailed(true); finishFormation(true); }, [finishFormation]);
 
   useEffect(() => () => {
     flightTween.current?.kill();
+    settleTween.current?.kill();
     if (formationTimeout.current) clearTimeout(formationTimeout.current);
   }, []);
 
@@ -188,17 +218,29 @@ export default function UniverseExperience() {
     suppressClick.current = false;
     setDragging(false);
     inertia.current = { x: 0, y: 0 };
+    if (opening) {
+      if (formationTimeout.current) clearTimeout(formationTimeout.current);
+      formationTimeout.current = null;
+      setFormationId(0);
+      setForming(false);
+      rotation.current = { x: -.19, y: -.12 };
+      setFocus(null);
+      settleTween.current?.kill();
+      settleTween.current = null;
+      main.current?.style.removeProperty('--formation-stage-top');
+      main.current?.style.removeProperty('--formation-stage-height');
+    }
     main.current?.style.setProperty('--intro-reveal', opening ? '0' : '1');
     main.current?.style.setProperty('--flight-progress', '0');
   }, [opening]);
   useEffect(() => {
     if (!reducedMotion) return;
-    finishFormation();
+    finishFormation(true);
     flightTween.current?.progress(1);
   }, [reducedMotion, finishFormation]);
   const finishOpening = () => {
     enter();
-    if (searchParams.get('intro') === '1') router.replace('/', { scroll: false });
+    if (searchParams.get('intro') === '1' || queryWorld) router.replace('/', { scroll: false });
     setTimeout(() => heading.current?.focus({ preventScroll: true }), 0);
   };
   const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -245,7 +287,7 @@ export default function UniverseExperience() {
     <main ref={main} id="main-content" className={`universe-shell${small ? ' compact-universe' : ''}`} inert={opening || forming || !!entering} data-opening={opening} data-forming={forming} data-entering={!!entering}>
       <div className="universe-heading"><h1 className="eyebrow" ref={heading} tabIndex={-1}>Welcome to my universe</h1><p>{!small && world ? world.subtitle : 'Engineer. Builder. Curious human.'}</p></div>
       <div ref={setStageNode} className={`universe-stage ${dragging ? 'is-dragging' : ''}`} onPointerDown={startDrag} onPointerMove={drag} onPointerUp={stopDrag} onPointerCancel={stopDrag} onLostPointerCapture={() => { pointer.current = null; setDragging(false); }}>
-        {labelPortal && <SceneBoundary onError={failScene}><UniverseScene focus={focus} onFocus={focusWorld} onEnter={openTopic} rotation={rotation} reducedMotion={reducedMotion} visited={visited} small={small} destination={entering} sunLabel={sunLabel} labelPortal={labelPortal} formationId={formationId} onFormationComplete={finishFormation} flightProgress={flightProgress}/></SceneBoundary>}
+        {labelPortal && <SceneBoundary onError={failScene}><UniverseScene focus={focus} onFocus={focusWorld} onEnter={openTopic} rotation={rotation} reducedMotion={reducedMotion} visited={visited} small={small} destination={entering} sunLabel={sunLabel} labelPortal={labelPortal} formationId={formationId} opening={opening} onFormationComplete={finishFormation} flightProgress={flightProgress}/></SceneBoundary>}
         <div ref={sunLabel} className="sun-position" data-gravity><div className="sun-label"><strong>VINAY</strong><span>Engineer · Builder · Curious Human</span>{visited.length > 7 && <em>You know a little more now.</em>}</div></div>
       </div>
       {small ? <MobileUniversePanel focus={focus} onFocus={focusWorld} onEnter={openTopic} onOpenAtlas={() => setAtlas(true)} sceneFailed={sceneFailed} entering={!!entering}/> : <>
