@@ -85,11 +85,16 @@
 }
 
 .titleTrajectory path {
-  stroke: rgb(153 193 204 / 21%);
-  stroke-width: 0.7px;
+  stroke: #c6e5e8;
+  stroke-width: 1px;
   stroke-linecap: round;
-  opacity: 0.8;
+  stroke-linejoin: round;
+  opacity: 0;
 }
+
+.drawingTip { fill: #ecfdff; filter: drop-shadow(0 0 4px #95d7e4); }
+
+:global(body:has([data-title-writing='true'])) .starshipCursor { opacity: 0 !important; }
 
 .titleShip {
   position: absolute;
