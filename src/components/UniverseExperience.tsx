@@ -3,11 +3,13 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { gsap } from 'gsap';
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
 import { worlds, topics, getWorld, getTopic, type WorldId } from '@/data/portfolio';
 import { useExperience } from './ExperienceProvider';
 import EntryGate from './EntryGate';
 import MobileUniversePanel from './MobileUniversePanel';
+import PlanetFlight from './PlanetFlight';
 
 const UniverseScene = dynamic(() => import('./UniverseScene'), { ssr: false, loading: () => <div className="scene-loading"><span>Finding your orbit</span></div> });
 
@@ -59,6 +61,8 @@ export default function UniverseExperience() {
   const [atlas, setAtlas] = useState(false);
   const [sceneFailed, setSceneFailed] = useState(false);
   const [entering, setEntering] = useState<string | null>(null);
+  const [formationId, setFormationId] = useState(0);
+  const [forming, setForming] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [small, setSmall] = useState(false);
   const [stageNode, setStageNode] = useState<HTMLDivElement | null>(null);
@@ -72,6 +76,29 @@ export default function UniverseExperience() {
   const sunLabel = useRef<HTMLDivElement>(null);
   const transitionLock = useRef(false);
   const mapButton = useRef<HTMLButtonElement>(null);
+  const flightProgress = useRef(0);
+  const flightTween = useRef<gsap.core.Tween | null>(null);
+  const formationTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const finishFormation = useCallback(() => {
+    if (formationTimeout.current) clearTimeout(formationTimeout.current);
+    formationTimeout.current = null;
+    setForming(false);
+    setFormationId(0);
+  }, []);
+  const beginOpening = useCallback(() => {
+    if (reducedMotion || sceneFailed) return;
+    setForming(true);
+    setFormationId((previous) => previous + 1);
+    if (formationTimeout.current) clearTimeout(formationTimeout.current);
+    formationTimeout.current = setTimeout(finishFormation, 4300);
+  }, [reducedMotion, sceneFailed, finishFormation]);
+  const failScene = useCallback(() => { setSceneFailed(true); finishFormation(); }, [finishFormation]);
+
+  useEffect(() => () => {
+    flightTween.current?.kill();
+    if (formationTimeout.current) clearTimeout(formationTimeout.current);
+  }, []);
 
   useEffect(() => {
     const query = window.matchMedia('(max-width: 700px)');
@@ -110,12 +137,27 @@ export default function UniverseExperience() {
 
   const focusWorld = useCallback((world: WorldId | null) => { if (!transitionLock.current && !pointer.current?.moved && !suppressClick.current) setFocus(world); }, []);
   const openTopic = useCallback((slug: string) => {
-    if (transitionLock.current || suppressClick.current) return;
+    if (transitionLock.current || suppressClick.current || forming) return;
     transitionLock.current = true;
     setEntering(slug);
     markVisited(slug);
-    router.push(`/explore/${slug}/`);
-  }, [markVisited, router]);
+    const href = `/explore/${slug}/`;
+    router.prefetch(href);
+    if (reducedMotion || sceneFailed) { router.push(href); return; }
+    flightTween.current?.kill();
+    flightProgress.current = 0;
+    const flight = { progress: 0 };
+    flightTween.current = gsap.to(flight, {
+      progress: 1,
+      duration: 2.05,
+      ease: 'none',
+      onUpdate: () => {
+        flightProgress.current = flight.progress;
+        main.current?.style.setProperty('--flight-progress', String(flight.progress));
+      },
+      onComplete: () => { flightTween.current = null; router.push(href); },
+    });
+  }, [markVisited, router, reducedMotion, sceneFailed, forming]);
 
   useEffect(() => {
     if (!ready || !entered) return;
@@ -134,6 +176,9 @@ export default function UniverseExperience() {
   const opening = !ready || !entered;
   // Reset navigation on home activation, including cached returns that skip the intro.
   useLayoutEffect(() => {
+    flightTween.current?.kill();
+    flightTween.current = null;
+    flightProgress.current = 0;
     transitionLock.current = false;
     setEntering(null);
     setAtlas(false);
@@ -144,7 +189,13 @@ export default function UniverseExperience() {
     setDragging(false);
     inertia.current = { x: 0, y: 0 };
     main.current?.style.setProperty('--intro-reveal', opening ? '0' : '1');
+    main.current?.style.setProperty('--flight-progress', '0');
   }, [opening]);
+  useEffect(() => {
+    if (!reducedMotion) return;
+    finishFormation();
+    flightTween.current?.progress(1);
+  }, [reducedMotion, finishFormation]);
   const finishOpening = () => {
     enter();
     if (searchParams.get('intro') === '1') router.replace('/', { scroll: false });
@@ -191,10 +242,10 @@ export default function UniverseExperience() {
   }, [focus, opening, small, focusWorld]);
 
   return <>
-    <main ref={main} id="main-content" className={`universe-shell${small ? ' compact-universe' : ''}`} inert={opening} data-opening={opening} data-entering={!!entering}>
+    <main ref={main} id="main-content" className={`universe-shell${small ? ' compact-universe' : ''}`} inert={opening || forming || !!entering} data-opening={opening} data-forming={forming} data-entering={!!entering}>
       <div className="universe-heading"><h1 className="eyebrow" ref={heading} tabIndex={-1}>Welcome to my universe</h1><p>{!small && world ? world.subtitle : 'Engineer. Builder. Curious human.'}</p></div>
       <div ref={setStageNode} className={`universe-stage ${dragging ? 'is-dragging' : ''}`} onPointerDown={startDrag} onPointerMove={drag} onPointerUp={stopDrag} onPointerCancel={stopDrag} onLostPointerCapture={() => { pointer.current = null; setDragging(false); }}>
-        {labelPortal && <SceneBoundary onError={() => setSceneFailed(true)}><UniverseScene focus={focus} onFocus={focusWorld} onEnter={openTopic} rotation={rotation} reducedMotion={reducedMotion} visited={visited} small={small} destination={entering} sunLabel={sunLabel} labelPortal={labelPortal}/></SceneBoundary>}
+        {labelPortal && <SceneBoundary onError={failScene}><UniverseScene focus={focus} onFocus={focusWorld} onEnter={openTopic} rotation={rotation} reducedMotion={reducedMotion} visited={visited} small={small} destination={entering} sunLabel={sunLabel} labelPortal={labelPortal} formationId={formationId} onFormationComplete={finishFormation} flightProgress={flightProgress}/></SceneBoundary>}
         <div ref={sunLabel} className="sun-position" data-gravity><div className="sun-label"><strong>VINAY</strong><span>Engineer · Builder · Curious Human</span>{visited.length > 7 && <em>You know a little more now.</em>}</div></div>
       </div>
       {small ? <MobileUniversePanel focus={focus} onFocus={focusWorld} onEnter={openTopic} onOpenAtlas={() => setAtlas(true)} sceneFailed={sceneFailed} entering={!!entering}/> : <>
@@ -207,8 +258,9 @@ export default function UniverseExperience() {
       <nav className="universe-toolbar" aria-label="Focus a world">{worlds.map((item) => <button key={item.id} aria-pressed={focus === item.id} onClick={() => focusWorld(focus === item.id ? null : item.id)}>{item.title}</button>)}</nav>
       <div className="universe-footer"><p className="universe-instruction">{small ? 'Swipe to rotate' : 'Drag space to rotate'}<span>·</span>{small ? 'Tap a world to explore' : 'Hover a world to discover'}</p><button ref={mapButton} className="atlas-button" onClick={() => setAtlas(true)}>{sceneFailed ? 'Explore the universe map' : 'Universe map'}</button></div>
       </>}
+      {entering && !reducedMotion && !sceneFailed && <PlanetFlight color={getWorld(getTopic(entering)?.world ?? 'professional').color} title={getTopic(entering)?.title ?? 'this world'}/>}
     </main>
-    {opening && <EntryGate reducedMotion={reducedMotion} onEnter={finishOpening} onProgress={revealOpening}/>}
+    {opening && <EntryGate reducedMotion={reducedMotion} onEnter={finishOpening} onProgress={revealOpening} onBeginEnter={beginOpening}/>}
     {atlas && <UniverseAtlas onClose={closeAtlas}/>}
   </>;
 }

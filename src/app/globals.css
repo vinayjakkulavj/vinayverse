@@ -166,8 +166,15 @@ html[data-motion='reduced'] .universe-shell[data-opening='true'] .universe-stage
   .focus-enter { margin-top: 12px; }
   .universe-toolbar { bottom: 54px; }
 }
-.universe-shell[data-entering='true']::before { content: ''; position: absolute; inset: 0; background: #05070a; z-index: 40; pointer-events: none; animation: enter-orbit .18s ease-out forwards; }
-@keyframes enter-orbit { from { opacity: 0; } to { opacity: .72; } }
+.universe-heading, .universe-toolbar, .universe-footer { transition: opacity .45s ease, transform .45s ease; }
+[data-universe-controls] { transition: opacity .45s ease; }
+.universe-shell[data-opening='true'] [data-universe-controls], .universe-shell[data-forming='true'] [data-universe-controls], .universe-shell[data-entering='true'] [data-universe-controls] { opacity: 0; pointer-events: none; }
+.universe-shell[data-forming='true'] .universe-heading, .universe-shell[data-forming='true'] .universe-toolbar, .universe-shell[data-forming='true'] .universe-footer { opacity: 0; transform: translateY(8px); pointer-events: none; }
+.universe-shell[data-forming='true'] .universe-toolbar { transform: translateX(-50%) translateY(8px); }
+.universe-shell[data-forming='true'] .sun-position { visibility: hidden !important; }
+.universe-shell[data-forming='true'] .focus-panel, .universe-shell[data-entering='true'] .focus-panel { visibility: hidden; }
+.universe-shell[data-entering='true'] .universe-heading, .universe-shell[data-entering='true'] .universe-toolbar, .universe-shell[data-entering='true'] .universe-footer { opacity: 0; pointer-events: none; }
+.universe-shell[data-entering='true'] .planet-label, .universe-shell[data-entering='true'] .moon-label, .universe-shell[data-entering='true'] .constellation-label, .universe-shell[data-entering='true'] .sun-position { visibility: hidden !important; }
 html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-motion='reduced'] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 .universe-toolbar button, .comms-link { min-height: 44px; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }

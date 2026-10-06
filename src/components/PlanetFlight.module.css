@@ -1,0 +1,52 @@
+.flight {
+  --flight: var(--flight-progress, 0);
+  position: fixed;
+  inset: 0;
+  z-index: 450;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: clamp(0, calc(var(--flight) * 5), 1);
+}
+.haze, .horizon, .depth { position: absolute; inset: 0; pointer-events: none; }
+.haze {
+  background: radial-gradient(ellipse at 50% 48%, transparent 18%, color-mix(in srgb, var(--atmosphere-color) 13%, transparent) 46%, color-mix(in srgb, var(--atmosphere-color) 70%, #070b15) 110%);
+  opacity: clamp(0, calc((var(--flight) - .3) * 1.7), .94);
+  transform: scale(calc(1.25 - var(--flight) * .25));
+  will-change: transform, opacity;
+}
+.horizon {
+  inset: 12% -35%;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--atmosphere-color) 65%, transparent);
+  box-shadow: 0 0 35px color-mix(in srgb, var(--atmosphere-color) 18%, transparent), inset 0 0 42px color-mix(in srgb, var(--atmosphere-color) 12%, transparent);
+  opacity: clamp(0, calc((var(--flight) - .24) * 2), .7);
+  transform: scale(calc(.42 + var(--flight) * 2.7));
+  will-change: transform, opacity;
+}
+.streams {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke: color-mix(in srgb, var(--atmosphere-color) 64%, white);
+  stroke-width: .6;
+  opacity: clamp(0, calc((var(--flight) - .13) * 1.3), .48);
+  transform: scale(calc(.85 + var(--flight) * 1.05));
+  will-change: transform, opacity;
+}
+.depth { background: #05070a; opacity: clamp(0, calc((var(--flight) - .77) / .23), 1); }
+.caption {
+  position: absolute;
+  left: 50%;
+  bottom: max(42px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  margin: 0;
+  text-align: center;
+  color: #e4ebf3;
+  font-size: 11px;
+  letter-spacing: .13em;
+  white-space: nowrap;
+  opacity: clamp(0, calc(1 - (var(--flight) - .68) * 4), .7);
+}
+.caption span { display: block; margin-top: 8px; color: #a1afc0; font-size: 9px; letter-spacing: .06em; }
+@media (prefers-reduced-motion: reduce) { .flight { display: none; } }

@@ -58,7 +58,7 @@ function WorldDetails({ world, onEnter, entering }: {
 export default function MobileUniversePanel({ focus, onFocus, onEnter, onOpenAtlas, sceneFailed, entering }: MobileUniversePanelProps) {
   const world = focus ? getWorld(focus) : null;
 
-  return <div className={styles.panel} inert={entering} style={{ '--world-accent': world?.color ?? 'var(--accent)' } as CSSProperties}>
+  return <div className={styles.panel} data-universe-controls inert={entering} style={{ '--world-accent': world?.color ?? 'var(--accent)' } as CSSProperties}>
     <nav className={styles.selector} aria-label="Choose a world">
       {worlds.map((item) => <button
         key={item.id}
