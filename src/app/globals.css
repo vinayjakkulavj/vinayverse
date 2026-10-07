@@ -36,6 +36,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .universe-heading { position: absolute; z-index: 5; top: 125px; left: 4vw; pointer-events: none; }
 .universe-heading .eyebrow { font-size: 11px; }
 .universe-heading p { font-size: 15px; line-height: 1.5; color: #94a1b2; margin: 9px 0 0; max-width: 245px; }
+.universe-stage-slot { position: absolute; inset: 0; }
 .universe-stage { position: absolute; inset: 0; touch-action: none; cursor: grab; }
 .universe-stage.is-dragging { cursor: grabbing; }
 .universe-shell[data-opening='true'] .universe-stage { transform: none; filter: none; }
@@ -169,15 +170,21 @@ html[data-motion='reduced'] .universe-shell[data-opening='true'] .universe-stage
 }
 .universe-heading, .universe-toolbar, .universe-footer { transition: opacity .45s ease, transform .45s ease; }
 .universe-shell[data-opening='true'] .universe-heading, .universe-shell[data-opening='true'] .universe-toolbar, .universe-shell[data-opening='true'] .universe-footer { opacity: 0; pointer-events: none; }
-.universe-shell[data-forming='true'] .planet-label, .universe-shell[data-forming='true'] .moon-label, .universe-shell[data-forming='true'] .constellation-label { visibility: hidden !important; }
-[data-universe-controls] { transition: opacity .45s ease; }
-.universe-shell[data-opening='true'] [data-universe-controls], .universe-shell[data-forming='true'] [data-universe-controls], .universe-shell[data-entering='true'] [data-universe-controls] { opacity: 0; pointer-events: none; }
-.universe-shell[data-forming='true'] .universe-heading, .universe-shell[data-forming='true'] .universe-toolbar, .universe-shell[data-forming='true'] .universe-footer { opacity: 0; transform: translateY(8px); pointer-events: none; }
-.universe-shell[data-forming='true'] .universe-toolbar { transform: translateX(-50%) translateY(8px); }
-.universe-shell[data-forming='true'] .sun-position { visibility: hidden !important; }
-.universe-shell[data-forming='true'] .focus-panel, .universe-shell[data-entering='true'] .focus-panel { visibility: hidden; }
+.universe-shell[data-forming='true'][data-settling='false'] .planet-label, .universe-shell[data-forming='true'][data-settling='false'] .moon-label, .universe-shell[data-forming='true'][data-settling='false'] .constellation-label { visibility: hidden !important; }
+[data-universe-controls] { transition: opacity .35s ease; }
+body:has(.universe-shell[data-forming='true'][data-settling='false']) .site-header { opacity: 0; pointer-events: none; }
+body:has(.universe-shell) .site-header { transition: opacity .35s ease; }
+.universe-shell[data-settling='true'] .universe-heading, .universe-shell[data-settling='true'] .universe-toolbar, .universe-shell[data-settling='true'] .universe-footer { transition-duration: .35s; }
+.universe-shell[data-opening='true'] [data-universe-controls], .universe-shell[data-forming='true'][data-settling='false'] [data-universe-controls], .universe-shell[data-entering='true'] [data-universe-controls] { opacity: 0; pointer-events: none; }
+.universe-shell[data-forming='true'][data-settling='false'] .universe-heading, .universe-shell[data-forming='true'][data-settling='false'] .universe-toolbar, .universe-shell[data-forming='true'][data-settling='false'] .universe-footer { opacity: 0; transform: translateY(8px); pointer-events: none; }
+.universe-shell[data-forming='true'][data-settling='false'] .universe-toolbar { transform: translateX(-50%) translateY(8px); }
+.universe-shell[data-forming='true'][data-settling='false'] .sun-position { visibility: hidden !important; }
+.universe-shell[data-forming='true'][data-settling='false'] .focus-panel, .universe-shell[data-entering='true'] .focus-panel { visibility: hidden; }
 .universe-shell[data-entering='true'] .universe-heading, .universe-shell[data-entering='true'] .universe-toolbar, .universe-shell[data-entering='true'] .universe-footer { opacity: 0; pointer-events: none; }
 .universe-shell[data-entering='true'] .planet-label, .universe-shell[data-entering='true'] .moon-label, .universe-shell[data-entering='true'] .constellation-label, .universe-shell[data-entering='true'] .sun-position { visibility: hidden !important; }
+html[data-starship-cursor='true'], html[data-starship-cursor='true'] * { cursor: none !important; }
+html[data-starship-cursor='true']:has([data-title-writing='true']), html[data-starship-cursor='true']:has([data-title-writing='true']) * { cursor: auto !important; }
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) { html[data-starship-cursor='true'], html[data-starship-cursor='true'] * { cursor: auto !important; } }
 html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-motion='reduced'] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 .universe-toolbar button, .comms-link { min-height: 44px; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
@@ -190,13 +197,23 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .compact-universe .universe-heading { position: relative; top: auto; left: auto; padding: 0 22px; }
   .compact-universe .universe-heading h1 { margin: 0; font-size: 10px; }
   .compact-universe .universe-heading p { display: block; max-width: none; font-size: 13px; margin-top: 7px; }
-  .compact-universe .universe-stage { position: relative; inset: auto; width: 100%; height: clamp(300px, 78vw, 380px); margin-top: 8px; overflow: hidden; isolation: isolate; touch-action: none; overscroll-behavior: contain; cursor: grab; }
+  .compact-universe .universe-stage-slot { position: relative; inset: auto; width: 100%; height: clamp(300px, 78vw, 380px); margin-top: 8px; }
+  .compact-universe .universe-stage { position: relative; inset: auto; width: 100%; height: 100%; overflow: hidden; isolation: isolate; touch-action: none; overscroll-behavior: contain; cursor: grab; }
   .compact-universe[data-opening='true'] .universe-stage, .compact-universe[data-forming='true'] .universe-stage { position: fixed; top: var(--formation-stage-top, 0px); left: 0; width: 100%; height: var(--formation-stage-height, 100dvh); margin-top: 0; }
+  /* Move and crop one stable full-screen render. Reallocating the canvas on
+     every settling frame briefly mismatches its camera and clips the planets. */
+  .compact-universe[data-forming='true'] .universe-canvas { position: absolute !important; height: 100dvh !important; top: calc((100% - 100dvh) / 2); }
+  .compact-universe[data-forming='true'] .compact-planet-label, .compact-universe[data-forming='true'] .sun-position { visibility: hidden !important; }
+  .compact-universe[data-opening='false'][data-forming='false'] .compact-planet-label, .compact-universe[data-opening='false'][data-forming='false'] .sun-position { animation: compact-label-arrive .25s ease both; }
+  .compact-universe[data-forming='true'] [data-universe-controls] { opacity: 0; visibility: hidden; pointer-events: none; }
   .compact-universe .universe-stage canvas { touch-action: none; }
   .compact-universe .universe-stage.is-dragging { cursor: grabbing; }
   .compact-universe .sun-label strong { font-size: 14px; font-weight: 450; letter-spacing: .08em; padding-left: .08em; }
   .compact-universe .sun-label span, .compact-universe .sun-label em { display: none; }
-  .compact-universe .compact-planet-label { min-width: 104px; min-height: 44px; padding: 10px 4px; border-radius: 8px; }
+  .compact-universe .compact-planet-label { min-width: 0; min-height: 0; padding: 0; transition: color .2s ease; }
   .compact-universe .compact-planet-label strong { font-size: 12px; font-weight: 450; letter-spacing: -.01em; }
-  .compact-universe .compact-planet-label[data-selected='true'] strong { color: #fff; }
+  .compact-universe .compact-passive-label, .compact-universe .compact-passive-label * { pointer-events: none !important; }
+  .compact-universe .compact-planet-label[data-selected='true'] { text-shadow: 0 2px 7px #000, 0 0 12px color-mix(in srgb, var(--planet-accent) 40%, transparent); }
+  .compact-universe .compact-planet-label[data-selected='true'] strong { color: var(--planet-accent); font-weight: 600; }
 }
+@keyframes compact-label-arrive { from { opacity: 0; } to { opacity: 1; } }

@@ -21,13 +21,14 @@ function UniverseDiagram() {
       <linearGradient id={`${id}-flow`} x1="0" y1="60" x2="240" y2="100" gradientUnits="userSpaceOnUse"><stop stopColor="#c2aeed" stopOpacity="0"/><stop offset=".45" stopColor="#a592de" stopOpacity=".7"/><stop offset="1" stopColor="#f1a078" stopOpacity=".85"/></linearGradient>
       <linearGradient id={`${id}-shadow`} x1="404" y1="89" x2="520" y2="89" gradientUnits="userSpaceOnUse"><stop stopColor="#354050" stopOpacity=".15"/><stop offset="1" stopColor="#182230" stopOpacity=".9"/></linearGradient>
     </defs>
-    <g stroke={`url(#${id}-flow)`} strokeWidth="1.2">
-      <path d="M0 26C75 5 80 147 145 76S220 51 280 85"/>
-      <path d="M0 66C69 9 112 153 171 95S222 65 280 85"/>
-      <path d="M0 112C78 171 92 21 158 89S222 114 280 85"/>
-      <path d="M0 150C53 117 108 162 143 120S222 97 280 85"/>
-    </g>
-    <g fill="#c5b5ec"><circle cx="69" cy="67" r="2"/><circle cx="122" cy="112" r="1.5"/><circle cx="160" cy="84" r="2.5"/></g>
+    <g>{Array.from({ length: 110 }, (_, index) => {
+      const y = 1 - 2 * (index + .5) / 110, angle = index * 2.399963;
+      const ring = Math.sqrt(1 - y * y), depth = Math.sin(angle) * ring;
+      return <circle key={index} cx={95 + Math.cos(angle) * ring * 53} cy={87 + y * 53} r={depth > 0 ? 1.5 : 1}
+        fill={['#c55e44', '#80afd1', '#b4a4d9', '#8bcab4'][index % 4]} opacity={.25 + (depth + 1) * .3}/>;
+    })}</g>
+    <path d="M159 87H208M229 87H272" stroke={`url(#${id}-flow)`} strokeWidth="1.2" strokeDasharray="2 5"/>
+    <circle cx="219" cy="87" r="3" fill="#c5b5ec"/>
     <ellipse cx="310" cy="87" rx="87" ry="45" stroke="#7d91ad" strokeOpacity=".24" transform="rotate(-12 310 87)"/>
     <ellipse cx="310" cy="87" rx="128" ry="65" stroke="#7d91ad" strokeOpacity=".2" transform="rotate(-12 310 87)"/>
     <ellipse cx="310" cy="87" rx="167" ry="77" stroke="#7d91ad" strokeOpacity=".14" transform="rotate(-12 310 87)"/>
@@ -96,8 +97,8 @@ export default function UniverseDesignGuide({ onClose, onPreviewEclipse }: { onC
           </section>
           <section className={styles.section}>
             <p className={styles.number}>02 <span>The opening</span></p><h3>Energy finding form.</h3>
-            <p>A small drag reveals colorful strings. Release them and particles expand, rebound, mingle, and gather into the worlds. Their shared rhythm carries the scene from restless energy to a readable solar system.</p>
-            <div className={styles.spaceNote}><p><strong>In space</strong>The Big Bang describes an expanding universe that began hot and dense. It happened throughout space. The strings and collisions here are a visual metaphor; this sequence compresses cosmic history into a few seconds.</p><Reference href={references.bigBang}>NASA: Understanding the Big Bang</Reference></div>
+            <p>A small drag reveals a transparent sphere of stardust in the colors of the four worlds. It rotates, pulses like a heartbeat, and folds inward to a tiny seed. A burst sends the particles outward; their movement settles into the sun and three planets. The three-second opening imagines ideas gathering energy and becoming worlds you can explore.</p>
+            <div className={styles.spaceNote}><p><strong>In space</strong>The Big Bang describes an expanding universe that began hot and dense. It happened throughout space. The sphere, heartbeat, collapse, and burst are artistic metaphors for an origin; this sequence does not simulate cosmic history.</p><Reference href={references.bigBang}>NASA: Understanding the Big Bang</Reference></div>
           </section>
           <section className={styles.section}>
             <p className={styles.number}>03 <span>The rhythm</span></p><h3>Every world has its own orbit.</h3>

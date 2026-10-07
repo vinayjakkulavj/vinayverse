@@ -26,7 +26,6 @@ function WorldDetails({ world, onEnter, entering }: {
   return <section className={styles.details} aria-label={`${world.title} navigation`}>
     <div className={styles.detailsHeading}>
       <div>
-        <p className={styles.eyebrow}>In focus</p>
         <h2 style={{ color: world.color }}>{world.title}</h2>
       </div>
       <button

@@ -61,14 +61,6 @@
   min-width: 0;
 }
 
-.eyebrow {
-  margin: 0 0 4px;
-  color: var(--muted);
-  font-size: 9px;
-  letter-spacing: .15em;
-  text-transform: uppercase;
-}
-
 .detailsHeading h2 {
   margin: 0;
   font-size: 21px;

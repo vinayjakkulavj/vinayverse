@@ -38,7 +38,7 @@
   inset: 0;
   content: "";
   opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.74' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.65'/%3E%3C/svg%3E");
+  background: radial-gradient(ellipse at 50% 40%, #8a9b9c, transparent 65%);
   pointer-events: none;
 }
 
@@ -134,11 +134,12 @@
 .titleLine {
   display: inline-block;
   white-space: nowrap;
+  opacity: 0;
+  contain: paint;
 }
 
 .typingCharacter {
   display: inline-block;
-  opacity: 0;
 }
 
 .titleQuestion {
@@ -192,8 +193,7 @@
 }
 
 :global(body:has([data-title-writing='true'])) .starshipCursor { opacity: 0 !important; }
-:global(html[data-starship-cursor='true']:has([data-title-writing='true'])),
-:global(html[data-starship-cursor='true']:has([data-title-writing='true']) *) { cursor: auto !important; }
+:global(body:has(.universe-shell[data-forming='true'])) .starshipCursor { opacity: 0 !important; }
 
 .dragZone {
   position: relative;
@@ -439,10 +439,6 @@
   opacity: 0;
 }
 
-:global(html[data-starship-cursor="true"]),
-:global(html[data-starship-cursor="true"] *) {
-  cursor: none !important;
-}
 
 @media (max-width: 700px) {
   .entryCopy {
@@ -566,10 +562,6 @@
     display: none;
   }
 
-  :global(html[data-starship-cursor="true"]),
-  :global(html[data-starship-cursor="true"] *) {
-    cursor: auto !important;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

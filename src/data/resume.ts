@@ -1,5 +1,4 @@
-// Transcribed from Vinay_Jakkula_Databricks_Oct26.pdf.
-// Only PDF line wrapping and spacing have been normalized.
+// Based on Vinay_Jakkula_Databricks_Oct26.pdf, with Vinay's requested portfolio edits.
 export const professionalResume = {
   summary: 'Senior Data Engineer with 7+ years of experience designing, modernizing, and optimizing enterprise data warehouse and data integration solutions across heterogeneous sources. Hands-on experience across Snowflake, Azure Databricks, Teradata, Hadoop, DB2, Informatica, PySpark, Python, and SQL, with strong expertise in ETL/ELT, data migration, data modeling, data quality, and production optimization. Led a six-member team and large-scale migrations involving 300 tables and 1 TB of data. Built AI-driven data lineage solutions using ChatGPT, Claude, Snowflake LLMs, and Cortex agents, expanding lineage coverage from 1 to 10 product teams.',
   experience: [
@@ -45,6 +44,6 @@ export const professionalResume = {
   achievements: [
     'Recognized with three consecutive TCS On-The-Spot awards in FY 2021–22, demonstrating exceptional performance.',
     'Garnered the EY Client Extraordinaire award in FY 22–23,FY 24–25,FY 25–26 at Morgan Stanley, exemplifying outstanding contributions to client satisfaction and team success.',
-    'Solely conceived and developed the innovative AI project, Joblens, which was subsequently nominated for the GRIT (Grass Root Innovation in Technology) Awards 2026 by Morgan Stanley.',
+    'Participated in the GRIT (Grass Root Innovation in Technology) Awards 2026 at Morgan Stanley with the AI project JobLens.',
   ],
 } as const;

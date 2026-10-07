@@ -9,6 +9,7 @@ import TitleDrawing from "./TitleDrawing";
 type EntryGateProps = {
   onEnter: () => void;
   reducedMotion: boolean;
+  visualReady: boolean;
   onProgress?: (progress: number) => void;
   onBeginEnter?: () => void;
 };
@@ -16,16 +17,17 @@ type EntryGateProps = {
 const DRAG_DISTANCE = 96;
 const OPEN_THRESHOLD = 0.6;
 const DRAG_REVEAL_LIMIT = 0.52;
-const REVEAL_DURATION = 0.9;
+const REVEAL_DURATION = 0.8;
 const TITLE_LINES = ["DO YOU", "KNOW ME?"];
 
-export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginEnter }: EntryGateProps) {
+export default function EntryGate({ onEnter, reducedMotion, visualReady, onProgress, onBeginEnter }: EntryGateProps) {
   const gateRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLButtonElement>(null);
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
   const resetRef = useRef<gsap.core.Tween | null>(null);
+  const dragTweenRef = useRef<gsap.core.Tween | null>(null);
   const titleReadyRef = useRef(reducedMotion);
   const callbacksRef = useRef({ onEnter, onProgress, onBeginEnter });
   const motionRef = useRef(reducedMotion);
@@ -94,6 +96,7 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
     return () => {
       timelineRef.current?.kill();
       resetRef.current?.kill();
+      dragTweenRef.current?.kill();
       window.removeEventListener("resize", resize);
     };
   }, [measureAperture, renderReveal]);
@@ -131,6 +134,7 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
     completedRef.current = true;
     callbacksRef.current.onBeginEnter?.();
     resetRef.current?.kill();
+    dragTweenRef.current?.kill();
     releasePointer();
     measureAperture();
     setEntering(true);
@@ -142,7 +146,7 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
 
     // A drag previews the universe; release completes one continuous reveal.
     const duration = REVEAL_DURATION;
-    const fadeDuration = 0.22;
+    const fadeDuration = 0.30;
     timelineRef.current = gsap.timeline({
       onComplete: notifyEntered,
     })
@@ -150,7 +154,7 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
         progress: 1,
         pull: 1,
         duration,
-        ease: "power3.inOut",
+        ease: "power2.out",
         onUpdate: renderReveal,
       }, 0)
       .to(controlsRef.current, {
@@ -168,6 +172,7 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
   const resetDrag = useCallback(() => {
     if (completedRef.current) return;
     resetRef.current?.kill();
+    dragTweenRef.current?.kill();
     if (motionRef.current) {
       revealRef.current = { progress: 0, handleY: 0, pull: 0 };
       renderReveal();
@@ -203,6 +208,7 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
     if (!titleReadyRef.current || completedRef.current || pointerRef.current !== null || !event.isPrimary || event.button !== 0) return;
     event.preventDefault();
     resetRef.current?.kill();
+    dragTweenRef.current?.kill();
     measureAperture();
     pointerRef.current = event.pointerId;
     originRef.current = event.clientY - revealRef.current.handleY;
@@ -215,10 +221,19 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
 
   const updateDragPosition = useCallback((clientY: number) => {
     const distance = Math.max(0, clientY - originRef.current);
-    revealRef.current.handleY = distance;
-    revealRef.current.pull = Math.min(1, distance / DRAG_DISTANCE);
-    revealRef.current.progress = revealRef.current.pull * DRAG_REVEAL_LIMIT;
-    renderReveal();
+    const pull = Math.min(1, distance / DRAG_DISTANCE);
+    dragTweenRef.current?.kill();
+    if (motionRef.current) {
+      revealRef.current.handleY = distance;
+      revealRef.current.pull = pull;
+      revealRef.current.progress = pull * DRAG_REVEAL_LIMIT;
+      renderReveal();
+      return;
+    }
+    dragTweenRef.current = gsap.to(revealRef.current, {
+      handleY: distance, pull, progress: pull * DRAG_REVEAL_LIMIT,
+      duration: .09, ease: 'power1.out', onUpdate: renderReveal,
+    });
   }, [renderReveal]);
 
   const finishDrag = useCallback((event: PointerEvent) => {
@@ -226,7 +241,7 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
     // Fast drags can deliver the last coordinate only on pointerup.
     updateDragPosition(event.clientY);
     releasePointer();
-    if (revealRef.current.pull >= OPEN_THRESHOLD) enter();
+    if (Math.max(0, event.clientY - originRef.current) / DRAG_DISTANCE >= OPEN_THRESHOLD) enter();
     else resetDrag();
   }, [enter, releasePointer, resetDrag, updateDragPosition]);
 
@@ -275,14 +290,14 @@ export default function EntryGate({ onEnter, reducedMotion, onProgress, onBeginE
       <div className={styles.entryVeil} aria-hidden="true" />
       <div className={styles.entryPortal} aria-hidden="true" />
       <div className={styles.entryFlight}>
-        <TitleDrawing titleRef={titleRef} reducedMotion={reducedMotion} onReady={revealTitleControls}/>
+        <TitleDrawing titleRef={titleRef} reducedMotion={reducedMotion} visualReady={visualReady} onReady={revealTitleControls}/>
         <div className={styles.entryCopy}>
           <div className={styles.entryEyebrow}><span /> A PERSONAL UNIVERSE BY VINAY</div>
           <h1 ref={titleRef} id="entry-title" className={styles.entryTitle} aria-label="Do you know me?">
-            <span className={styles.titleLine} aria-hidden="true">{Array.from(TITLE_LINES[0]).map((character, index) => <span key={index} data-type-character className={styles.typingCharacter}>{character === " " ? "\u00a0" : character}</span>)}</span>
+            <span className={styles.titleLine} data-type-line aria-hidden="true">{Array.from(TITLE_LINES[0]).map((character, index) => <span key={index} className={styles.typingCharacter}>{character === " " ? "\u00a0" : character}</span>)}</span>
             <br className={styles.mobileBreak} aria-hidden="true" />
             <span className={styles.titleSpace} aria-hidden="true"> </span>
-            <span className={styles.titleLine} aria-hidden="true">{Array.from(TITLE_LINES[1]).map((character, index) => <span key={index} data-type-character className={`${styles.typingCharacter}${character === "?" ? ` ${styles.titleQuestion}` : ""}`}>{character === " " ? "\u00a0" : character}</span>)}</span>
+            <span className={styles.titleLine} data-type-line aria-hidden="true">{Array.from(TITLE_LINES[1]).map((character, index) => <span key={index} className={`${styles.typingCharacter}${character === "?" ? ` ${styles.titleQuestion}` : ""}`}>{character === " " ? "\u00a0" : character}</span>)}</span>
           </h1>
           <p id="entry-description" className={styles.entryDescription}>There is more than one answer.</p>
           <div className={styles.entryCoordinates} aria-hidden="true">ENGINEER. BUILDER. CURIOUS HUMAN.</div>
